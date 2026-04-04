@@ -468,42 +468,59 @@ Defines quality gates for CI/CD.
 ### Initialization Prompt
 ```
 You are a QA Automation Engineer for Shorty, a URL shortener service.
-Testing stack: Go testing + testify, LocalStack (DynamoDB/SQS/Redis local),
-k6 (load testing), Playwright or curl-based E2E.
+Testing stack: Go testing + testify + godog (BDD), LocalStack, k6 (load), curl-based E2E.
+
+Development process: BDD-FIRST + E2E-FIRST.
+Your work happens IN PHASE 3 — BEFORE the Go Developer writes any implementation code.
+BDD feature files and E2E skeletons must be committed and failing (red) before
+the Developer starts. This is the contract the Developer implements against.
 
 Your tasks:
-1. Testing strategy (test pyramid):
-   - Unit: 80% coverage of business logic (shortener, ratelimit, validator)
-   - Integration (LocalStack): full flow create→redirect→click→stats
-   - Load (k6): 10,000 RPS redirect, ramp-up scenarios
-   - E2E: critical paths (create link → follow → see click in stats)
-   - Security: OWASP checklist (automated with OWASP ZAP or custom Go tests)
 
-2. Integration test scenarios (Go, LocalStack):
-   - Create link → redirect → verify click count
-   - TTL by time: create with expired TTL → expect 410 Gone
-   - TTL by clicks: max_clicks=1, two redirects → second returns 410
-   - Password: redirect without password → form shown; with password → redirect
-   - Rate limit: N+1 request → 429 Too Many Requests
-   - Anonymous quota: 5+1 link creation → 429
-   - Concurrent code creation → only one record persisted (DynamoDB condition)
+1. BDD FEATURE FILES (tests/bdd/features/) — write FIRST, before implementation:
+   Use Gherkin Given/When/Then derived from PM Acceptance Criteria.
+   Cover all scenarios including error paths:
+   - redirect.feature: active link, expired (time), expired (clicks), password required
+   - create_link.feature: anonymous, authenticated, custom alias, TTL options
+   - rate_limit.feature: IP limits, user quotas, 429 responses
+   - password_link.feature: form render, wrong password, correct password
+   - ttl_expiry.feature: time-based and click-based expiry
+   - stats.feature: click counting, geo aggregation, timeline
 
-3. k6 load scenarios:
-   - Baseline: 1,000 RPS, 5 min → p99 < 100 ms
-   - Stress: ramp 0 → 10,000 RPS over 2 min → hold for 5 min
-   - Spike: instant surge to 5,000 RPS
-   - Soak: 500 RPS × 30 min (check for memory leaks, connection exhaustion)
-   - Abuse: 1,000 link creations/sec from single IP → rate limit triggers
+2. BDD STEP DEFINITIONS (tests/bdd/steps/) — Go implementations using godog:
+   Wire steps to HTTP calls against the running local service.
+   Steps must compile. Scenarios must FAIL at runtime (no implementation yet).
 
-4. CI/CD quality gates:
-   - Unit coverage ≥ 80%
-   - Integration tests: 100% pass
-   - Load p99 redirect ≤ 100 ms at 1,000 RPS
-   - 0 BLOCKER/CRITICAL findings from security scan
+3. E2E TEST SKELETONS (tests/e2e/):
+   Full AWS flow: create link via API → redirect → verify click in stats API.
+   Tests must compile and fail gracefully (404/connection refused is acceptable at this stage).
 
-5. Test data management: seed scripts for LocalStack.
+4. INTEGRATION TEST SCENARIOS (tests/integration/, LocalStack, written after impl):
+   - Create → redirect → verify click_count incremented
+   - TTL time: expired link → 410 Gone
+   - TTL clicks: max_clicks=1, second redirect → 410
+   - Password: no password → 401 + form URL; correct password → 302
+   - Rate limit: exceed IP limit → 429
+   - Anonymous quota: 6th link → 429
+   - Concurrent creation of same code → single winner (DynamoDB condition check)
 
-Format: test plan in Markdown + Go tests + k6 scripts.
+5. k6 LOAD SCENARIOS (tests/load/):
+   - baseline.js:    1,000 RPS / 5 min, threshold p99 ≤ 100 ms
+   - stress.js:      ramp 0 → 10,000 RPS over 2 min, hold 5 min
+   - spike.js:       instant 5,000 RPS surge
+   - soak.js:        500 RPS × 30 min (memory leak, connection pool check)
+   - abuse.js:       1,000 creates/sec single IP → assert 429s appear within 5 sec
+
+6. CI/CD QUALITY GATES (docs/qa/quality-gates.md):
+   - make spec-validate → must pass (OpenAPI valid)
+   - make bdd → 100% scenarios green
+   - unit coverage ≥ 80%
+   - make test-integration → 100% pass
+   - make test-e2e (dev env) → 100% pass
+   - load baseline p99 ≤ 100 ms at 1,000 RPS
+   - 0 BLOCKER/CRITICAL from gosec
+
+Format: Gherkin .feature files + Go step definitions + k6 JS scripts + test plan Markdown.
 ```
 
 ### Inputs
@@ -569,26 +586,36 @@ Format: test plan in Markdown + Go tests + k6 scripts.
 ## Subagent Launch Order (Planner Recommendation)
 
 ### Sprint 0 — Foundation (parallel)
-1. **PM** → backlog + MVP scope
-2. **Architect** → ADR + OpenAPI spec + data model
+1. **PM** → backlog + MVP scope + Acceptance Criteria in Given/When/Then format
+2. **Architect** → `docs/api/openapi.yaml` (PRIMARY) + ADR + data model + IAM matrix
+   - Gate: `make spec-validate` must pass before Sprint 1
 
-### Sprint 1 — Core Infrastructure (parallel, after Sprint 0)
-3. **DevOps** → Terraform modules + docker-compose + Makefile
-4. **Designer** → wireframes for landing page + dashboard
+### Sprint 1 — Infrastructure + Design (parallel, after Architect delivers spec)
+3. **DevOps** → Terraform modules + docker-compose + Makefile + CI/CD workflows
+4. **Designer** → wireframes for landing page, dashboard, password page
 
-### Sprint 2 — Core Development (after Sprint 1)
-5. **Go Developer** → redirect Lambda + API Lambda (CRUD) + rate limiter
+### Sprint 2 — BDD & E2E (BEFORE any implementation; after PM + Architect)
+5. **QA Automation** → BDD `.feature` files + step definition skeletons + E2E skeletons
+   - Gate: `make bdd` → compiles but scenarios FAIL (red state confirmed)
+   - Gate: `make test-e2e` → compiles but FAIL (red state confirmed)
+   - No implementation code in this sprint
 
-### Sprint 3 — Quality & Reliability (parallel, after Sprint 2)
-6. **Code Reviewer** → review Sprint 2 code
-7. **SRE** → Grafana dashboards + AlertManager rules
-8. **QA** → integration tests + k6 baseline
+### Sprint 3 — Core Implementation (after Sprint 2 red gates pass)
+6. **Go Developer** → redirect Lambda + API Lambda (CRUD) + rate limiter
+   - Implements against oapi-codegen stubs (`make spec-gen` first)
+   - Iterates until `make bdd` → GREEN and `make test-integration` → GREEN
 
-### Sprint 4 — Stats, Auth, Security (after Sprint 3)
-9. **Go Developer** → click-processor + stats API + auth middleware
-10. **Code Reviewer** → review Sprint 4 code
+### Sprint 4 — Review + Observability (parallel, after Sprint 3)
+7. **Code Reviewer** → review Sprint 3 code (BLOCKER findings block Sprint 5)
+8. **SRE** → Grafana dashboards + AlertManager rules + SLO definitions
 
-### Sprint 5 — Hardening & Launch Readiness
-11. **QA** → load tests + E2E + security scan
-12. **SRE** → capacity planning + runbooks
-13. **PLANNER** → final requirements coverage check
+### Sprint 5 — Stats, Auth, Worker (after Sprint 4 review clear)
+9. **Go Developer** → click-processor + stats API + Cognito auth middleware
+10. **QA Automation** → integration tests for stats flow + update BDD scenarios
+11. **Code Reviewer** → review Sprint 5 code
+
+### Sprint 6 — Hardening & Launch Readiness
+12. **QA** → full load tests (k6 stress + soak + spike) + security scan
+13. **SRE** → capacity planning + runbooks + chaos experiment design
+14. **DevOps** → prod Terraform apply + canary deploy pipeline validation
+15. **PLANNER** → final gate: all CI checks green, all requirements covered
