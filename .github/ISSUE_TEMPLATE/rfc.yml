@@ -1,0 +1,67 @@
+name: RFC (Request for Comments)
+description: Propose a significant design change that needs community discussion
+title: "[rfc]: "
+labels: ["type:rfc", "status:discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An RFC is required for changes that are:
+        - Estimated effort XL (> 1 week)
+        - Breaking changes to the API or data model
+        - New AWS services or major infrastructure changes
+        - Changes to the engineering flow or toolchain
+
+        **Process:** Open this issue → discuss → open a PR adding `docs/rfcs/NNNN-title.md` →
+        merge RFC doc → close this issue → open implementation issues linked to the RFC.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One paragraph. What are you proposing and why?
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation & Problem Statement
+      description: What problem does this solve? What happens if we don't do it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: design
+    attributes:
+      label: Proposed Design
+      description: |
+        High-level design. For API changes include endpoint sketches.
+        For data model changes include schema sketches.
+        Don't over-specify — leave room for the RFC PR discussion.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches did you consider and why did you reject them?
+    validations:
+      required: true
+
+  - type: textarea
+    id: drawbacks
+    attributes:
+      label: Drawbacks & Open Questions
+      description: What are the downsides? What is unresolved?
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I searched existing RFCs and ADRs — this is not already decided
+          required: true
+        - label: I am prepared to author the RFC document PR if this discussion reaches consensus
+          required: true

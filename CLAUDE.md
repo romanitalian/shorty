@@ -6,7 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Shorty** — high-performance URL shortener. Stack: AWS Lambda (Go, ARM64), API Gateway v2, DynamoDB, ElastiCache Redis, SQS FIFO, CloudFront + WAF, Cognito SSO. Terraform IaC. Local dev via LocalStack + Docker Compose.
 
-Full requirements: `requirements-init.md`. Subagent role definitions: `requirements-subagents.md`.
+## Requirements & Tracking
+
+| Source | Purpose |
+|---|---|
+| **GitHub Issues** | Live work tracking — one issue per task, linked to PRs |
+| **GitHub Milestones** | Sprint 0–6, gate conditions documented per milestone |
+| `docs/api/openapi.yaml` | API contract — single source of truth, generates Go stubs |
+| `docs/adr/` | Architecture Decision Records — immutable, never edited after `Accepted` |
+| `docs/rfcs/` | RFC process for XL changes; `0000-template.md` + accepted RFCs |
+| `tests/bdd/features/` | Gherkin `.feature` files — verifiable requirements (BDD) |
+| `requirements-init.md` | Architectural reference and bootstrap document |
+| `requirements-subagents.md` | Subagent role definitions and initialization prompts |
+
+**Bootstrap a new GitHub repo:** `bash deploy/scripts/github-setup.sh` — creates all labels, milestones, and initial issues via `gh` CLI.
 
 ## Common Commands
 
@@ -80,5 +93,13 @@ Grafana dashboards are provisioned automatically from `config/grafana/dashboards
 - Redirect p99 target: **< 100 ms**. Any change to the redirect critical path must be benchmarked.
 - Rate limiting is enforced **before** business logic in every Lambda handler.
 - IP addresses are never stored in plain text — always SHA-256(IP + secret_salt).
-- Lambda binaries must be built for `GOARCH=arm64 GOOS=linux CGO_ENABLED=0` (SnapStart, Graviton).
+- Lambda binaries must be built for `GOARCH=arm64 GOOS=linux CGO_ENABLED=0` (ARM Graviton). Go Lambda has **no SnapStart** — redirect Lambda uses `provisioned_concurrency = 2` instead.
 - Terraform manages all AWS resources. No manual console changes.
+- All PRs must close a GitHub Issue. PRs without a linked issue will not be reviewed.
+
+## Contributing
+
+See `CONTRIBUTING.md`. Key points:
+- Conventional Commits: `feat(redirect):`, `fix(ratelimit):`, `perf(api):`, etc.
+- XL features require an RFC in `docs/rfcs/` before implementation
+- Security vulnerabilities → GitHub Security Advisories, not public issues

@@ -1,0 +1,92 @@
+name: Feature Request
+description: Propose a new feature or enhancement
+title: "[feat]: "
+labels: ["type:feature", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to propose a feature.
+        Please fill out the sections below as completely as possible.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One paragraph description of the feature and its value.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: |
+        Why is this needed? What problem does it solve?
+        Link related issues or user feedback here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: |
+        List the conditions that must be true for this feature to be considered done.
+        Use Given/When/Then format — these will become BDD scenarios.
+      placeholder: |
+        - Given ... When ... Then ...
+        - Given ... When ... Then ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-impact
+    attributes:
+      label: API / Schema Impact
+      description: |
+        Does this require changes to `docs/api/openapi.yaml`?
+        If yes, describe the new endpoints or schema changes.
+      placeholder: "New endpoint: POST /api/v1/links/{code}/qr"
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      multiple: true
+      options:
+        - redirect
+        - api
+        - worker
+        - auth
+        - ratelimit
+        - shortener
+        - observability
+        - infra
+        - frontend
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Estimated Effort
+      options:
+        - "XS — a few hours"
+        - "S — 1 day"
+        - "M — 2–3 days"
+        - "L — 1 week"
+        - "XL — needs RFC"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: This is a single, focused feature (not a bundle of unrelated changes)
+          required: true
+        - label: For XL efforts — I will open an RFC in `docs/rfcs/` first
