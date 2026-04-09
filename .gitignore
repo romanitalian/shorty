@@ -6,6 +6,8 @@
 *.dylib
 /worker
 /integration.test
+/migrate
+/seed
 
 # Build output
 bin/
