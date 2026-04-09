@@ -1,0 +1,12 @@
+task: S0-T04
+agent: architect
+completed_at: 2026-04-05T12:00:00Z
+outputs:
+  - docs/architecture/data-model.md
+  - docs/architecture/iam-matrix.md
+  - docs/architecture/sequence-diagrams/redirect-flow.md
+  - docs/architecture/sequence-diagrams/create-link-flow.md
+  - docs/architecture/sequence-diagrams/click-processing-flow.md
+  - docs/architecture/sequence-diagrams/auth-flow.md
+verification: all 6 files exist and are non-empty
+next: S0-T05 (DBA:DynamoDB), S0-T06 (DBA:Redis) — both unblocked

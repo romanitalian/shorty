@@ -1,0 +1,55 @@
+Task: S3-T02
+Status: DONE
+Date: 2026-04-05
+
+## Deliverables
+
+### 1. internal/shortener/shortener.go
+- Generator interface with Generate(ctx) and GenerateCustom(ctx, code) methods
+- Base62 encoding using crypto/rand (charset: 0-9a-zA-Z)
+- Default code length: 7 characters (~3.5 trillion codes)
+- Collision retry: up to 5 attempts with exponential backoff (100ms, 200ms, 400ms, 800ms, 1600ms)
+- Custom alias validation: ^[a-zA-Z0-9][a-zA-Z0-9_-]{2,31}$
+- GenerateCustom checks store for existing code, returns store.ErrCodeCollision on collision
+- CodeStore interface defined at point of use (GetLink + CreateLink)
+
+### 2. internal/shortener/shortener_test.go
+- 9 tests, all passing with -race:
+  - TestGenerate_CodeLength: codes are 7 chars
+  - TestGenerate_Base62Only: 100 codes all match Base62 charset
+  - TestGenerate_CryptographicallyRandom: 50 codes all unique
+  - TestGenerate_CollisionRetrySucceeds: retry after 3 collisions succeeds
+  - TestGenerate_MaxRetriesExceeded: returns ErrMaxRetriesExceeded after 5 failures
+  - TestGenerateCustom_ValidAliases: valid patterns accepted
+  - TestGenerateCustom_InvalidAliases: invalid patterns rejected
+  - TestGenerateCustom_CodeCollision: returns store.ErrCodeCollision
+  - TestGenerateCustom_AvailableCode: available code returns nil
+
+### 3. internal/validator/validator.go
+- Validator interface with ValidateURL(ctx, rawURL) method
+- Scheme check: only http/https allowed; blocks javascript:, data:, file:, ftp:, vbscript:, etc.
+- Length check: max 2048 characters
+- URL parsing via net/url
+- Host validation: must have non-empty host
+- Private IP blocking: 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, ::1, fc00::/7, plus additional ranges from security spec
+- Optional DNS resolution check via WithDNSCheck() option
+- IDN homograph detection: flags mixed-script hostnames
+- Typed sentinel errors for each failure type
+
+### 4. internal/validator/validator_test.go
+- 18 tests, all passing with -race:
+  - Valid HTTP/HTTPS URLs pass
+  - javascript:, data:, file:, ftp:, vbscript: rejected
+  - Private IPs rejected (10.0.0.1, 127.0.0.1, 192.168.1.1, 172.16.0.1, 169.254.169.254)
+  - IPv6 loopback rejected
+  - Long URL (>2048 chars) rejected
+  - Empty URL rejected
+  - URL without host rejected
+  - Valid international domain (pure Cyrillic) passes
+  - Mixed-script IDN detected (Cyrillic+Latin)
+  - Helper function tests
+
+### 5. Build verification
+- go mod tidy: clean
+- go build ./...: passes
+- go test -race: all 27 tests pass

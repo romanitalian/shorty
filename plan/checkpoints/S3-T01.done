@@ -1,0 +1,42 @@
+## S3-T01: spec-gen + internal/store + internal/cache
+
+### Completed: 2026-04-05
+
+### Deliverables
+
+1. **API types generated** via `oapi-codegen` from `docs/api/openapi.yaml`
+   - Output: `internal/api/generated/api.gen.go` (3045 lines)
+   - Config: `config/oapi-codegen.yaml` (models + chi-server + strict-server + embedded-spec)
+
+2. **`internal/store/`** -- DynamoDB Repository
+   - `models.go` -- Link, ClickEvent, User domain models with `dynamodbav` struct tags
+   - `errors.go` -- Sentinel errors: ErrCodeCollision, ErrLinkNotFound, ErrLinkInactiveOrLimitReached, ErrUserNotFound
+   - `store.go` -- Store interface + DynamoStore implementation with DynamoDBClient interface for testability
+     - CreateLink: PutItem with `attribute_not_exists(PK)` condition
+     - GetLink: GetItem with `LINK#{code}` PK, `META` SK (eventually consistent)
+     - UpdateLink: UpdateItem with owner_id condition + expression attribute names
+     - DeleteLink: Soft-delete (is_active=false) with owner_id condition, idempotent
+     - ListLinksByOwner: Query on GSI `owner_id-created_at-index` with cursor-based pagination (base64-encoded token)
+     - IncrementClickCount: Atomic increment with max_clicks enforcement via ConditionExpression
+     - BatchWriteClicks: BatchWriteItem with exponential backoff + jitter retry for partial failures (max 5 retries)
+     - GetUser: GetItem with `USER#{userID}` PK, `PROFILE` SK
+     - UpdateUserQuota: Increment daily counter with quota + date condition
+   - `store_test.go` -- 16 unit tests with mock DynamoDBClient (all passing with -race)
+
+3. **`internal/cache/`** -- Redis Adapter
+   - `cache.go` -- Cache interface + RedisCache implementation with RedisClient interface for testability
+     - Key pattern: `link:{code}` with JSON serialization (only redirect-hot-path fields)
+     - TTL: min(link.ExpiresAt - now, 5 minutes)
+     - Negative cache: `neg:{code}` with 60s TTL
+     - Graceful failure: all Redis errors silently ignored (cache miss falls through to DynamoDB)
+   - `cache_test.go` -- 9 tests (including TTL computation, corrupted data, UTM fields)
+
+4. **Dependencies added**: aws-sdk-go-v2 (core, dynamodb, attributevalue, config), go-redis/v9
+5. **`go build ./...`** compiles cleanly
+6. **All 25 tests pass** with `-race` flag
+
+### Access Patterns Implemented
+- L1 (Create link), L2/L3 (Get link), L4 (Update link), L5 (Delete/soft-delete)
+- L7 (List user links via GSI), L8 (Increment click_count)
+- C2 (Batch write clicks)
+- U1 (Get user), U3 (Update daily quota)

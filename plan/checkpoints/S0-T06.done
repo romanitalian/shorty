@@ -1,0 +1,21 @@
+task: S0-T06
+title: Redis design, capacity planning, and migration strategy
+completed: 2026-04-05
+agent: dba
+
+deliverables:
+  - docs/db/redis-design.md
+  - docs/db/capacity-planning.md
+  - docs/db/migration-strategy.md
+
+summary: |
+  Created three DBA documents covering Redis architecture, capacity planning,
+  and migration strategy. Redis design includes cache layer (link:{code} with
+  5-min TTL, negative cache, JSON serialization, allkeys-lfu eviction), full
+  Lua sliding window rate limiter script ready for implementation, per-tier
+  rate limit configuration, connection pooling for Lambda, and ElastiCache
+  Terraform configuration. Capacity planning covers DynamoDB and Redis at
+  1K/10K/50K RPS with storage, throughput, instance sizing, and monthly cost
+  estimates. Migration strategy documents blue/green table swap, GSI lifecycle,
+  backfill patterns, Redis version upgrades, DR procedures, LocalStack
+  limitations, and a reusable migration checklist.

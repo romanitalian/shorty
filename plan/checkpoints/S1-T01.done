@@ -1,0 +1,26 @@
+task: S1-T01
+title: Lambda and API Gateway configuration documentation
+agent: aws-specialist
+completed: 2026-04-05
+deliverables:
+  - docs/aws/lambda-config.md
+  - docs/aws/apigw-config.md
+summary: |
+  Created comprehensive AWS configuration documentation for all three Lambda functions
+  (redirect, api, worker) and API Gateway v2 HTTP API.
+
+  Lambda config covers: memory sizing (512/256/128 MB), timeouts (5s/10s/60s), arm64
+  architecture, provided.al2023 runtime, provisioned concurrency (redirect: 2),
+  reserved concurrency (1000/200/50), VPC layout with security groups, VPC endpoints
+  (DynamoDB gateway + 4 interface endpoints), environment variables via SSM/Secrets Manager,
+  cold start analysis (260-410ms total), DLQ for worker, X-Ray tracing, deployment
+  aliases, and concurrency budget planning.
+
+  API Gateway config covers: route mapping (15 routes across redirect and api Lambdas),
+  AWS_PROXY integration with payload format 2.0, stage configuration ($default + dev),
+  throttling (stage-level 5000 burst/2000 rate, per-route limits for guest endpoint at
+  100/50), CORS configuration, custom domain setup (api.shorty.io), JSON access logging
+  with CloudWatch Insights queries, JWT authorizer with Cognito integration, authorization
+  scopes, monitoring alarms (5xx rate, latency p99), and API Gateway limits documentation.
+
+  Both files include Terraform resource examples for DevOps to implement.

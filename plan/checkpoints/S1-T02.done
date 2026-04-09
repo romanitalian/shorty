@@ -1,0 +1,47 @@
+task: S1-T02
+title: CloudFront, WAF, and Cognito configuration documentation
+completed: 2026-04-05
+agent: aws-specialist
+
+deliverables:
+  - docs/aws/cloudfront-config.md
+  - docs/aws/waf-config.md
+  - docs/aws/cognito-config.md
+
+summary: |
+  Created three AWS configuration specification documents for DevOps implementation.
+
+  cloudfront-config.md:
+    - Distribution settings (HTTP/2+3, PriceClass_100, TLS 1.2+)
+    - Cache behaviors: API/auth/password paths (no cache), static assets (cached), default redirect (no cache for click counting)
+    - API Gateway origin with X-Origin-Verify custom header to prevent direct access
+    - Custom error responses (403, 404, 410, 429, 5xx) served from S3
+    - Security response headers policy (HSTS, CSP, X-Frame-Options)
+    - Lambda@Edge for cookie-to-Authorization header extraction (ADR-010 requirement)
+    - Full Terraform aws_cloudfront_distribution example
+
+  waf-config.md:
+    - 11 rules ordered by priority: IP blocklist, CRS, known bad inputs, bot control (COUNT mode), IP reputation, 3 rate-based rules, CAPTCHA, suspicious UA, geo-blocking
+    - WAF minimum rate limit caveat documented (100 req/5min minimum)
+    - Bot Control deployment strategy: COUNT for 7 days, then selective BLOCK
+    - Logging to CloudWatch with redacted auth/cookie headers
+    - CloudWatch alarms for high block rate and bot spikes
+    - Full Terraform aws_wafv2_web_acl example with all rules
+    - Operational runbook (DDoS response, false positive handling)
+
+  cognito-config.md:
+    - User Pool: password policy, optional TOTP MFA, email verification, custom attributes (plan, max_links, daily_limit)
+    - Lambda triggers: pre-signup (disposable email blocking, SSO auto-confirm), post-confirmation (DynamoDB user init), pre-token-generation (custom claims injection)
+    - Google OAuth 2.0 with attribute mapping
+    - GitHub OAuth 2.0 documented for post-MVP (OIDC proxy workaround)
+    - App client: PKCE-only authorization code flow, token validity (1h access, 30d refresh)
+    - Per-environment callback URLs with localhost restricted to non-prod
+    - JWT claims structure with usage mapping
+    - API Gateway JWT authorizer integration
+    - User groups (free-tier, pro-tier, admin)
+    - Full Terraform example (user pool, domain, identity provider, app client, groups, trigger permissions)
+
+references:
+  - docs/adr/009-cloudfront-waf-defense.md
+  - docs/adr/010-cognito-sso-jwt.md
+  - requirements-init.md (sections 2.4, 7, 13)

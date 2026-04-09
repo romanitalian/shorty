@@ -1,0 +1,53 @@
+task: S2-T02
+title: Create BDD feature files for redirect, create_link, and rate_limit
+status: done
+completed: 2026-04-05
+
+deliverables:
+  - tests/bdd/features/redirect.feature    # 15 scenarios (6 happy, 5 error, 4 edge-case)
+  - tests/bdd/features/create_link.feature # 15 scenarios (8 happy, 5 error, 3 ratelimit)
+  - tests/bdd/features/rate_limit.feature  # 14 scenarios (5 happy, 4 error, 3 edge-case, 2 security)
+
+tags_used:
+  - @redirect, @create, @ratelimit
+  - @happy-path, @error-path, @edge-case, @security
+
+gherkin_constructs:
+  - Feature with Background section
+  - Scenario (standard)
+  - Scenario Outline with Examples table
+  - Doc-string JSON bodies
+  - Data tables for link properties
+
+coverage:
+  redirect:
+    - 302 default redirect, 301 permanent redirect
+    - 404 not found, 410 gone (time TTL, click limit, deactivated)
+    - Click event async recording
+    - Cache hit (Redis) and cache miss (DynamoDB fallback + warm)
+    - UTM parameter preservation
+    - Long URL (2048 chars)
+    - SQS unavailability resilience
+    - Rate-limited redirect (429)
+  create_link:
+    - Anonymous POST /api/v1/shorten with 24h TTL enforcement
+    - Authenticated POST /api/v1/links (basic, custom alias, TTL, max_clicks, password, UTM)
+    - Duplicate alias 409
+    - Invalid URL variants (empty, invalid, ftp, javascript:, SSRF, >2048 chars)
+    - Cache warm on creation
+    - Guest quota 5/hr, free daily 50/day, free total 500
+    - Unauthenticated 401
+  rate_limit:
+    - Anonymous redirect 200 req/min sliding window
+    - Anonymous creation 5/hr
+    - Rate limit headers (X-RateLimit-Limit, Remaining, Reset)
+    - Retry-After on 429
+    - IP isolation (independent counters)
+    - Authenticated free tier 50/day
+    - Sliding window expiry and partial expiry
+    - WAF-level blocking at 1000 req/min
+
+notes:
+  - All scenarios written in RED state (no implementation exists yet)
+  - Feature files must NOT be modified after Sprint 2 completion
+  - Step definitions to be wired in tests/bdd/steps/ (separate task)

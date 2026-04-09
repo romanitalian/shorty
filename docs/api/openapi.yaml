@@ -1,0 +1,1275 @@
+openapi: 3.0.3
+info:
+  title: Shorty URL Shortener API
+  description: |
+    High-performance URL shortener service. Provides link creation, redirect,
+    analytics, and user management endpoints.
+
+    **Authentication:** JWT Bearer tokens issued by AWS Cognito.
+    Guest endpoints are IP rate-limited and do not require authentication.
+
+    **Rate Limiting:** All responses include `X-RateLimit-Limit`,
+    `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+    When the limit is exceeded, HTTP 429 is returned with a `Retry-After` header.
+  version: 1.0.0
+  contact:
+    name: Shorty Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.dev.shorty.example.com
+    description: Dev environment
+
+tags:
+  - name: redirect
+    description: Public redirect endpoints
+  - name: links
+    description: Link CRUD operations (JWT required)
+  - name: stats
+    description: Link analytics (JWT required)
+  - name: user
+    description: User profile and quota (JWT required)
+  - name: guest
+    description: Guest link creation (rate-limited, no auth)
+
+paths:
+  /{code}:
+    get:
+      operationId: redirectToOriginal
+      summary: Redirect to original URL
+      description: |
+        Looks up the short code and issues an HTTP redirect to the original URL.
+        Cache-first: checks Redis, then DynamoDB. Click events are recorded
+        asynchronously via SQS and never block the redirect response.
+
+        Returns 302 by default. Password-protected links return 403 with an
+        HTML form. Expired or click-limited links return 410.
+      tags: [redirect]
+      parameters:
+        - $ref: '#/components/parameters/CodePath'
+      responses:
+        '301':
+          description: Permanent redirect (opt-in per link)
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+                example: https://example.com/very/long/original/url
+            Cache-Control:
+              schema:
+                type: string
+                example: public, max-age=86400
+        '302':
+          description: Temporary redirect (default)
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+                example: https://example.com/very/long/original/url
+            Cache-Control:
+              schema:
+                type: string
+                example: private, no-cache
+        '403':
+          description: Password required — returns HTML form
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /p/{code}:
+    post:
+      operationId: submitPassword
+      summary: Submit password for protected link
+      description: |
+        Accepts a password via form submission for password-protected links.
+        On success, redirects to the original URL. On failure, returns the
+        password form with an error message. Rate-limited to 5 attempts per
+        15 minutes per IP.
+      tags: [redirect]
+      parameters:
+        - $ref: '#/components/parameters/CodePath'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [password, csrf_token]
+              properties:
+                password:
+                  type: string
+                  description: Link password
+                  minLength: 1
+                  maxLength: 128
+                csrf_token:
+                  type: string
+                  description: CSRF protection token
+      responses:
+        '302':
+          description: Password correct — redirect to original URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '403':
+          description: Incorrect password — returns HTML form with error
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/links:
+    post:
+      operationId: createLink
+      summary: Create a new short link
+      description: |
+        Creates a new shortened link. Supports optional custom alias, password
+        protection, TTL (time-based and click-based), UTM parameters, and title.
+        Code is auto-generated (Base62, 7 chars) unless a custom alias is provided.
+      tags: [links]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLinkRequest'
+      responses:
+        '201':
+          description: Link created successfully
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Link'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      operationId: listLinks
+      summary: List user's links
+      description: |
+        Returns a paginated list of the authenticated user's links.
+        Supports filtering by status and sorting by creation date.
+        Uses cursor-based pagination for consistent results.
+      tags: [links]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: cursor
+          in: query
+          description: Pagination cursor from previous response
+          schema:
+            type: string
+            example: eyJjb2RlIjoiYWJjMTIzIn0=
+        - name: limit
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+        - name: status
+          in: query
+          description: Filter by link status
+          schema:
+            type: string
+            enum: [active, expired, all]
+            default: all
+        - name: sort
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [created_at_asc, created_at_desc]
+            default: created_at_desc
+      responses:
+        '200':
+          description: Paginated list of links
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/links/{code}:
+    get:
+      operationId: getLink
+      summary: Get link details
+      description: Returns full details for a specific link owned by the authenticated user.
+      tags: [links]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CodePath'
+      responses:
+        '200':
+          description: Link details
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Link'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    patch:
+      operationId: updateLink
+      summary: Update a link
+      description: |
+        Partially updates link properties. Only the provided fields are updated.
+        Code and owner cannot be changed. Supports updating title, active status,
+        expiration, max clicks, and password.
+      tags: [links]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CodePath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLinkRequest'
+      responses:
+        '200':
+          description: Link updated successfully
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Link'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteLink
+      summary: Delete a link
+      description: Permanently deletes a link and all associated click data.
+      tags: [links]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CodePath'
+      responses:
+        '204':
+          description: Link deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/links/{code}/stats:
+    get:
+      operationId: getLinkStats
+      summary: Get aggregate link statistics
+      description: |
+        Returns aggregate click statistics for a link: total clicks,
+        unique clicks, and click counts over configurable time periods.
+      tags: [stats]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CodePath'
+        - $ref: '#/components/parameters/StatsFrom'
+        - $ref: '#/components/parameters/StatsTo'
+      responses:
+        '200':
+          description: Aggregate statistics
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsAggregate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/links/{code}/stats/timeline:
+    get:
+      operationId: getLinkStatsTimeline
+      summary: Get click time series
+      description: |
+        Returns click counts aggregated by date for the specified time range.
+        Each data point includes total clicks and unique clicks.
+      tags: [stats]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CodePath'
+        - $ref: '#/components/parameters/StatsFrom'
+        - $ref: '#/components/parameters/StatsTo'
+        - name: granularity
+          in: query
+          description: Time bucket granularity
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+      responses:
+        '200':
+          description: Click time series
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsTimeline'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/links/{code}/stats/geo:
+    get:
+      operationId: getLinkStatsGeo
+      summary: Get geography breakdown
+      description: |
+        Returns click counts grouped by country (ISO 3166-1 alpha-2 codes).
+        Sorted by click count descending.
+      tags: [stats]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CodePath'
+        - $ref: '#/components/parameters/StatsFrom'
+        - $ref: '#/components/parameters/StatsTo'
+      responses:
+        '200':
+          description: Geography breakdown
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsGeo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/links/{code}/stats/referrers:
+    get:
+      operationId: getLinkStatsReferrers
+      summary: Get referrer sources
+      description: |
+        Returns click counts grouped by referrer domain.
+        Sorted by click count descending.
+      tags: [stats]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CodePath'
+        - $ref: '#/components/parameters/StatsFrom'
+        - $ref: '#/components/parameters/StatsTo'
+      responses:
+        '200':
+          description: Referrer sources
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsReferrers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/me:
+    get:
+      operationId: getProfile
+      summary: Get user profile and quota usage
+      description: |
+        Returns the authenticated user's profile information and current
+        quota usage (links created today, total active links, plan limits).
+      tags: [user]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile with quota usage
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/shorten:
+    post:
+      operationId: guestShorten
+      summary: Create a short link without authentication
+      description: |
+        Guest endpoint for creating short links without registration.
+        Subject to strict rate limits (5 links/hour per IP) and constraints:
+        - Maximum TTL: 24 hours
+        - No custom alias
+        - No password protection
+        - No statistics access
+      tags: [guest]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestShortenRequest'
+      responses:
+        '201':
+          description: Short link created
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestShortenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token issued by AWS Cognito
+
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for programmatic access (Pro/Enterprise plans)
+
+  parameters:
+    CodePath:
+      name: code
+      in: path
+      required: true
+      description: Short link code
+      schema:
+        type: string
+        pattern: '^[a-zA-Z0-9]{3,32}$'
+        minLength: 3
+        maxLength: 32
+        example: abc1234
+
+    StatsFrom:
+      name: from
+      in: query
+      description: Start date for statistics (inclusive, ISO 8601)
+      schema:
+        type: string
+        format: date
+        example: '2026-01-01'
+
+    StatsTo:
+      name: to
+      in: query
+      description: End date for statistics (inclusive, ISO 8601)
+      schema:
+        type: string
+        format: date
+        example: '2026-12-31'
+
+  headers:
+    X-RateLimit-Limit:
+      description: Maximum number of requests allowed in the current window
+      schema:
+        type: integer
+        example: 200
+
+    X-RateLimit-Remaining:
+      description: Number of requests remaining in the current window
+      schema:
+        type: integer
+        example: 195
+
+    X-RateLimit-Reset:
+      description: Unix timestamp when the rate limit window resets
+      schema:
+        type: integer
+        format: int64
+        example: 1735689600
+
+  schemas:
+    # --- Link schemas ---
+
+    Link:
+      type: object
+      description: A shortened link with all metadata
+      required:
+        - code
+        - original_url
+        - short_url
+        - is_active
+        - has_password
+        - click_count
+        - created_at
+        - updated_at
+        - owner_id
+      properties:
+        code:
+          type: string
+          description: Unique short code
+          pattern: '^[a-zA-Z0-9]{3,32}$'
+          minLength: 3
+          maxLength: 32
+          example: abc1234
+        original_url:
+          type: string
+          description: Original destination URL
+          format: uri
+          maxLength: 2048
+          example: https://example.com/very/long/original/url?with=params
+        short_url:
+          type: string
+          description: Full shortened URL
+          format: uri
+          example: https://sho.rt/abc1234
+        title:
+          type: string
+          description: Human-readable label for the link
+          maxLength: 255
+          example: My Example Link
+          nullable: true
+        has_password:
+          type: boolean
+          description: Whether the link is password-protected
+          example: false
+        expires_at:
+          type: string
+          description: Expiration timestamp (ISO 8601)
+          format: date-time
+          example: '2026-12-31T23:59:59Z'
+          nullable: true
+        max_clicks:
+          type: integer
+          description: Maximum number of allowed clicks (null for unlimited)
+          minimum: 1
+          example: 1000
+          nullable: true
+        click_count:
+          type: integer
+          description: Current total click count
+          minimum: 0
+          example: 42
+        is_active:
+          type: boolean
+          description: Whether the link is currently active
+          example: true
+        created_at:
+          type: string
+          description: Creation timestamp (ISO 8601)
+          format: date-time
+          example: '2026-01-15T10:30:00Z'
+        updated_at:
+          type: string
+          description: Last update timestamp (ISO 8601)
+          format: date-time
+          example: '2026-01-15T10:30:00Z'
+        owner_id:
+          type: string
+          description: Owner user ID or anonymous hash
+          example: usr_abc123
+
+    CreateLinkRequest:
+      type: object
+      description: Request body for creating a new link
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: Original URL to shorten
+          format: uri
+          maxLength: 2048
+          minLength: 1
+          example: https://example.com/very/long/original/url
+        custom_code:
+          type: string
+          description: Custom short code alias (optional, must be unique)
+          pattern: '^[a-zA-Z0-9]{3,32}$'
+          minLength: 3
+          maxLength: 32
+          example: my-link
+        title:
+          type: string
+          description: Human-readable label
+          maxLength: 255
+          example: Marketing Campaign Q1
+        password:
+          type: string
+          description: Password to protect the link (will be bcrypt-hashed)
+          minLength: 4
+          maxLength: 128
+          example: s3cret!
+        expires_at:
+          type: string
+          description: Expiration timestamp (ISO 8601)
+          format: date-time
+          example: '2026-12-31T23:59:59Z'
+        max_clicks:
+          type: integer
+          description: Maximum number of allowed redirects
+          minimum: 1
+          maximum: 1000000
+          example: 1000
+        utm_source:
+          type: string
+          description: UTM source parameter to auto-append
+          maxLength: 128
+          example: newsletter
+        utm_medium:
+          type: string
+          description: UTM medium parameter to auto-append
+          maxLength: 128
+          example: email
+        utm_campaign:
+          type: string
+          description: UTM campaign parameter to auto-append
+          maxLength: 128
+          example: spring_sale
+
+    UpdateLinkRequest:
+      type: object
+      description: Request body for updating a link (partial update)
+      properties:
+        title:
+          type: string
+          description: Updated human-readable label
+          maxLength: 255
+          example: Updated Campaign Title
+          nullable: true
+        is_active:
+          type: boolean
+          description: Activate or deactivate the link
+          example: true
+        expires_at:
+          type: string
+          description: Updated expiration timestamp (ISO 8601, null to remove)
+          format: date-time
+          example: '2027-06-30T23:59:59Z'
+          nullable: true
+        max_clicks:
+          type: integer
+          description: Updated max click limit (null to remove)
+          minimum: 1
+          maximum: 1000000
+          example: 5000
+          nullable: true
+        password:
+          type: string
+          description: New password (null to remove password protection)
+          minLength: 4
+          maxLength: 128
+          nullable: true
+
+    LinkListResponse:
+      type: object
+      description: Paginated list of links
+      required: [items, pagination]
+      properties:
+        items:
+          type: array
+          description: List of links
+          items:
+            $ref: '#/components/schemas/Link'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Pagination:
+      type: object
+      description: Cursor-based pagination metadata
+      required: [has_more]
+      properties:
+        next_cursor:
+          type: string
+          description: Cursor for the next page (null if no more pages)
+          example: eyJjb2RlIjoiYWJjMTIzIiwiY3JlYXRlZF9hdCI6MTcwMDAwMDAwMH0=
+          nullable: true
+        has_more:
+          type: boolean
+          description: Whether more results are available
+          example: true
+        total:
+          type: integer
+          description: Total count of matching items (may be omitted for performance)
+          minimum: 0
+          example: 142
+
+    # --- Guest schemas ---
+
+    GuestShortenRequest:
+      type: object
+      description: Guest link creation request (no auth required)
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: Original URL to shorten
+          format: uri
+          maxLength: 2048
+          minLength: 1
+          example: https://example.com/page
+
+    GuestShortenResponse:
+      type: object
+      description: Guest link creation response
+      required: [code, short_url, original_url, expires_at]
+      properties:
+        code:
+          type: string
+          description: Generated short code
+          pattern: '^[a-zA-Z0-9]{3,32}$'
+          example: x7Kp2mQ
+        short_url:
+          type: string
+          description: Full shortened URL
+          format: uri
+          example: https://sho.rt/x7Kp2mQ
+        original_url:
+          type: string
+          description: Original URL
+          format: uri
+          example: https://example.com/page
+        expires_at:
+          type: string
+          description: Automatic expiration (max 24h for guest links)
+          format: date-time
+          example: '2026-04-06T12:00:00Z'
+
+    # --- Stats schemas ---
+
+    StatsAggregate:
+      type: object
+      description: Aggregate click statistics for a link
+      required: [code, total_clicks, unique_clicks, period]
+      properties:
+        code:
+          type: string
+          description: Short link code
+          example: abc1234
+        total_clicks:
+          type: integer
+          description: Total click count in the period
+          minimum: 0
+          example: 1523
+        unique_clicks:
+          type: integer
+          description: Unique visitor count in the period (by IP hash)
+          minimum: 0
+          example: 987
+        period:
+          $ref: '#/components/schemas/StatsPeriod'
+
+    StatsTimeline:
+      type: object
+      description: Click time series data
+      required: [code, granularity, data, period]
+      properties:
+        code:
+          type: string
+          description: Short link code
+          example: abc1234
+        granularity:
+          type: string
+          description: Time bucket granularity
+          enum: [hour, day, week, month]
+          example: day
+        data:
+          type: array
+          description: Time series data points
+          items:
+            $ref: '#/components/schemas/TimelineDataPoint'
+        period:
+          $ref: '#/components/schemas/StatsPeriod'
+
+    TimelineDataPoint:
+      type: object
+      description: A single data point in the time series
+      required: [date, clicks, unique_clicks]
+      properties:
+        date:
+          type: string
+          description: Date or datetime for this bucket (ISO 8601)
+          example: '2026-03-15'
+        clicks:
+          type: integer
+          description: Total clicks in this bucket
+          minimum: 0
+          example: 45
+        unique_clicks:
+          type: integer
+          description: Unique clicks in this bucket
+          minimum: 0
+          example: 32
+
+    StatsGeo:
+      type: object
+      description: Geographic breakdown of clicks
+      required: [code, data, period]
+      properties:
+        code:
+          type: string
+          description: Short link code
+          example: abc1234
+        data:
+          type: array
+          description: Click counts by country, sorted descending
+          items:
+            $ref: '#/components/schemas/GeoDataPoint'
+        period:
+          $ref: '#/components/schemas/StatsPeriod'
+
+    GeoDataPoint:
+      type: object
+      description: Click count for a single country
+      required: [country, clicks]
+      properties:
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code
+          pattern: '^[A-Z]{2}$'
+          minLength: 2
+          maxLength: 2
+          example: US
+        clicks:
+          type: integer
+          description: Total clicks from this country
+          minimum: 0
+          example: 523
+
+    StatsReferrers:
+      type: object
+      description: Referrer source breakdown of clicks
+      required: [code, data, period]
+      properties:
+        code:
+          type: string
+          description: Short link code
+          example: abc1234
+        data:
+          type: array
+          description: Click counts by referrer domain, sorted descending
+          items:
+            $ref: '#/components/schemas/ReferrerDataPoint'
+        period:
+          $ref: '#/components/schemas/StatsPeriod'
+
+    ReferrerDataPoint:
+      type: object
+      description: Click count for a single referrer domain
+      required: [domain, clicks]
+      properties:
+        domain:
+          type: string
+          description: Referrer domain (or "direct" for no referrer)
+          maxLength: 255
+          example: twitter.com
+        clicks:
+          type: integer
+          description: Total clicks from this referrer
+          minimum: 0
+          example: 312
+
+    StatsPeriod:
+      type: object
+      description: The time period for statistics
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          description: Period start date (ISO 8601)
+          format: date
+          example: '2026-01-01'
+        to:
+          type: string
+          description: Period end date (ISO 8601)
+          format: date
+          example: '2026-12-31'
+
+    # --- User schemas ---
+
+    UserProfile:
+      type: object
+      description: User profile with quota usage information
+      required:
+        - user_id
+        - email
+        - plan
+        - quota
+        - created_at
+      properties:
+        user_id:
+          type: string
+          description: Unique user identifier
+          example: usr_abc123
+        email:
+          type: string
+          description: User email address
+          format: email
+          example: user@example.com
+        plan:
+          type: string
+          description: Current subscription plan
+          enum: [free, pro, enterprise]
+          example: free
+        quota:
+          $ref: '#/components/schemas/QuotaUsage'
+        created_at:
+          type: string
+          description: Account creation timestamp (ISO 8601)
+          format: date-time
+          example: '2026-01-01T00:00:00Z'
+
+    QuotaUsage:
+      type: object
+      description: Current quota usage and limits
+      required:
+        - daily_links_used
+        - daily_links_limit
+        - total_links_active
+        - total_links_limit
+      properties:
+        daily_links_used:
+          type: integer
+          description: Links created today
+          minimum: 0
+          example: 12
+        daily_links_limit:
+          type: integer
+          description: Maximum links allowed per day
+          minimum: 0
+          example: 50
+        total_links_active:
+          type: integer
+          description: Current total active links
+          minimum: 0
+          example: 87
+        total_links_limit:
+          type: integer
+          description: Maximum total active links allowed
+          minimum: 0
+          example: 500
+
+    # --- Error schemas ---
+
+    ProblemDetail:
+      type: object
+      description: RFC 7807 Problem Details error response
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          description: A URI reference identifying the problem type
+          format: uri
+          example: https://api.shorty.example.com/problems/validation-error
+        title:
+          type: string
+          description: Short, human-readable summary of the problem
+          example: Validation Error
+        status:
+          type: integer
+          description: HTTP status code
+          minimum: 400
+          maximum: 599
+          example: 400
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence
+          example: 'The field "url" is required and must be a valid URI.'
+        instance:
+          type: string
+          description: A URI reference identifying the specific occurrence
+          format: uri
+          example: /api/v1/links
+        errors:
+          type: array
+          description: Detailed field-level validation errors (for 400 responses)
+          items:
+            $ref: '#/components/schemas/FieldError'
+
+    FieldError:
+      type: object
+      description: A single field-level validation error
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          description: JSON path to the invalid field
+          example: url
+        message:
+          type: string
+          description: Human-readable error description
+          example: Must be a valid URI with http or https scheme
+        code:
+          type: string
+          description: Machine-readable error code
+          example: invalid_uri
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters or body
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.shorty.example.com/problems/validation-error
+            title: Validation Error
+            status: 400
+            detail: 'The field "url" is required and must be a valid URI.'
+            instance: /api/v1/links
+            errors:
+              - field: url
+                message: Must be a valid URI with http or https scheme
+                code: invalid_uri
+
+    Unauthorized:
+      description: Missing or invalid authentication credentials
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.shorty.example.com/problems/unauthorized
+            title: Unauthorized
+            status: 401
+            detail: Missing or expired JWT token.
+
+    Forbidden:
+      description: Insufficient permissions to access the resource
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.shorty.example.com/problems/forbidden
+            title: Forbidden
+            status: 403
+            detail: You do not have permission to access this link.
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.shorty.example.com/problems/not-found
+            title: Not Found
+            status: 404
+            detail: 'Short link "abc1234" does not exist.'
+
+    Conflict:
+      description: Resource conflict (e.g., custom code already taken)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.shorty.example.com/problems/conflict
+            title: Conflict
+            status: 409
+            detail: 'The custom code "my-link" is already in use.'
+
+    Gone:
+      description: Link expired or click limit reached
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.shorty.example.com/problems/gone
+            title: Gone
+            status: 410
+            detail: This link has expired or reached its click limit.
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Seconds until the rate limit resets
+          schema:
+            type: integer
+            example: 60
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/X-RateLimit-Limit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/X-RateLimit-Remaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/X-RateLimit-Reset'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.shorty.example.com/problems/rate-limit-exceeded
+            title: Too Many Requests
+            status: 429
+            detail: Rate limit exceeded. Try again in 60 seconds.
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+          example:
+            type: https://api.shorty.example.com/problems/internal-error
+            title: Internal Server Error
+            status: 500
+            detail: An unexpected error occurred. Please try again later.

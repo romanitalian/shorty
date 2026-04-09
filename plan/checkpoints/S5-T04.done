@@ -1,0 +1,35 @@
+S5-T04: Integration tests for stats endpoints and security test cases.
+
+Completed: 2026-04-05
+
+Deliverables:
+1. tests/integration/stats_test.go - 9 tests covering stats endpoints
+   - TestGetLinkStats_ValidOwner, TestGetLinkStats_WrongOwner, TestGetLinkStats_Unauthenticated
+   - TestGetLinkTimeline_HourGranularity, TestGetLinkTimeline_DayGranularity
+   - TestGetLinkGeo_MultipleCountries, TestGetLinkReferrers_MultipleReferrers
+   - TestGetLinkStats_NonexistentCode, TestGetLinkStats_ZeroClicks
+
+2. tests/integration/auth_test.go - 7 tests covering auth middleware
+   - TestAuthMiddleware_NoToken_AnonymousAccess, TestAuthMiddleware_ValidToken_SetsContext
+   - TestAuthMiddleware_InvalidToken_Returns401, TestAuthMiddleware_ExpiredToken_Returns401
+   - TestRequireAuth_ProtectedEndpoint, TestRequireAuth_ValidToken_Passes
+   - TestAuthMiddleware_SessionCookie
+
+3. tests/integration/security_test.go - 13 tests covering SEC-001 through SEC-010
+   - SEC001: Private IP rejection (SSRF prevention)
+   - SEC002: javascript:/data:/vbscript: scheme rejection
+   - SEC003: Rate limit enforcement (429)
+   - SEC004: XSS in title (stored safely as JSON)
+   - SEC005: SQL injection in custom code
+   - SEC006: Bcrypt password hashing verification
+   - SEC007: CSRF stub verification
+   - SEC008: Security headers / Content-Type enforcement
+   - SEC009: Body size limit / field validation
+   - SEC010: IP anonymization (SHA-256, no plaintext)
+   - Cross-user resource access (delete, update, stats)
+   - Invalid token format handling
+
+4. tests/integration/helpers_test.go - Shared mocks and test setup
+5. tests/integration/api_server_test.go - Integration API server (mirrors cmd/api/server.go)
+
+All 29 tests pass with -race. BDD step definitions unchanged (pending stubs already reference correct Store methods).
