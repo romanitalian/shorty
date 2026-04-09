@@ -4,9 +4,8 @@
 *.dll
 *.so
 *.dylib
-worker
-integration.test
-*.test
+/worker
+/integration.test
 
 # Build output
 bin/
