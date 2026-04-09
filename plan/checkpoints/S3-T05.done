@@ -1,0 +1,30 @@
+## S3-T05: API Lambda Handler — REST CRUD Endpoints
+
+**Completed:** 2026-04-05
+
+### Deliverables
+
+1. **`cmd/api/main.go`** — Full Lambda entry point with init()-time initialization of DynamoDB, Redis, rate limiter, code generator, and URL validator. Chi router with generated handler registration. Supports LOCAL_MODE for development and Lambda execution for production.
+
+2. **`cmd/api/server.go`** — `APIServer` struct implementing the full generated `ServerInterface`:
+   - `POST /api/v1/shorten` — guest creation with rate limiting, 24h TTL, cache warming
+   - `POST /api/v1/links` — authenticated creation with custom alias support
+   - `GET /api/v1/links` — paginated list by owner
+   - `GET /api/v1/links/{code}` — get link with ownership check
+   - `PATCH /api/v1/links/{code}` — partial update with cache invalidation
+   - `DELETE /api/v1/links/{code}` — soft-delete with cache invalidation
+   - `GET /api/v1/me` — placeholder user profile
+   - Stats endpoints — stubs returning empty data (Sprint 5)
+   - Redirect/password endpoints — delegate to redirect Lambda (501)
+
+3. **`cmd/api/server_test.go`** — 10 handler tests via httptest:
+   - GuestShorten 201, GuestShorten rate-limited 429
+   - CreateLink 201, CreateLink invalid URL 400, CreateLink duplicate alias 409
+   - ListLinks 200, GetLink 200, GetLink not found 404
+   - UpdateLink 200, DeleteLink 204
+
+4. **`pkg/apierr/errors.go`** — Added `WriteJSON` and `WriteProblem` helpers
+
+### Verification
+- `go build ./...` — PASS
+- `go test ./cmd/api/... -race` — 10/10 PASS

@@ -1,0 +1,261 @@
+# .github/workflows/ci.yml
+#
+# PR CI pipeline — runs on every pull request to main.
+# All jobs must pass before a PR can be merged.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.23"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. OpenAPI spec validation (first gate — nothing else matters if spec is bad)
+  # ---------------------------------------------------------------------------
+  spec-validate:
+    name: Spec Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Spectral
+        run: npm install -g @stoplight/spectral-cli@6
+
+      - name: Validate OpenAPI spec
+        run: spectral lint docs/api/openapi.yaml --fail-severity warn
+
+  # ---------------------------------------------------------------------------
+  # 2. Code quality (fmt, vet, lint, security)
+  # ---------------------------------------------------------------------------
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Go fmt
+        run: |
+          output=$(gofmt -l .)
+          if [ -n "$output" ]; then
+            echo "Files not formatted:"
+            echo "$output"
+            exit 1
+          fi
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: v1.57
+          args: --timeout=5m
+
+      - name: gosec
+        uses: securego/gosec@v2.20.0
+        with:
+          args: -exclude-generated ./...
+
+  # ---------------------------------------------------------------------------
+  # 3. Unit tests with race detector + coverage
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [check]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run unit tests
+        run: |
+          go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${COVERAGE}%"
+          THRESHOLD=80
+          if [ "$(echo "${COVERAGE} < ${THRESHOLD}" | bc -l)" -eq 1 ]; then
+            echo "Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+            exit 1
+          fi
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # 4. BDD tests (godog) with LocalStack + Redis services
+  # ---------------------------------------------------------------------------
+  bdd:
+    name: BDD
+    runs-on: ubuntu-latest
+    needs: [spec-validate]
+    services:
+      localstack:
+        image: localstack/localstack:3
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: dynamodb,sqs,s3,secretsmanager,iam
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      AWS_ENDPOINT_URL: http://localhost:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
+      REDIS_ADDR: localhost:6379
+      ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Wait for LocalStack
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4566/_localstack/health > /dev/null 2>&1; then
+              echo "LocalStack is ready"
+              break
+            fi
+            echo "Waiting for LocalStack... ($i/30)"
+            sleep 2
+          done
+
+      - name: Seed local resources
+        run: |
+          if [ -f deploy/scripts/localstack-init/01-setup.sh ]; then
+            bash deploy/scripts/localstack-init/01-setup.sh
+          fi
+
+      - name: Run BDD tests
+        run: make bdd
+
+  # ---------------------------------------------------------------------------
+  # 5. Integration tests against LocalStack
+  # ---------------------------------------------------------------------------
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [check]
+    services:
+      localstack:
+        image: localstack/localstack:3
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: dynamodb,sqs,s3,secretsmanager,iam
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      AWS_ENDPOINT_URL: http://localhost:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
+      REDIS_ADDR: localhost:6379
+      ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Wait for LocalStack
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4566/_localstack/health > /dev/null 2>&1; then
+              echo "LocalStack is ready"
+              break
+            fi
+            echo "Waiting for LocalStack... ($i/30)"
+            sleep 2
+          done
+
+      - name: Seed local resources
+        run: |
+          if [ -f deploy/scripts/localstack-init/01-setup.sh ]; then
+            bash deploy/scripts/localstack-init/01-setup.sh
+          fi
+
+      - name: Run integration tests
+        run: make test-integration
+
+  # ---------------------------------------------------------------------------
+  # 6. Build Lambda binaries (linux/arm64)
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, bdd]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build Lambda binaries
+        run: make build
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+
+      - name: Upload Lambda artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-artifacts
+          path: .build/*.zip
+          retention-days: 7
+          if-no-files-found: error

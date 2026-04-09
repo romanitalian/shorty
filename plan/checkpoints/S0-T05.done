@@ -1,0 +1,47 @@
+task: S0-T05
+title: DynamoDB access patterns, schema validation, and atomic patterns
+status: done
+completed: 2026-04-05
+agent: dba
+
+deliverables:
+  - docs/db/dynamodb-access-patterns.md
+  - docs/db/dynamodb-schema.md
+  - docs/db/atomic-patterns.md
+
+summary: |
+  Created three DBA documents covering all DynamoDB operations for Shorty:
+
+  1. Access Patterns (dynamodb-access-patterns.md):
+     - 8 operations on links table (L1-L8)
+     - 8 operations on clicks table (C1-C8)
+     - 6 operations on users table (U1-U6)
+     - 3 cross-table operations (X1-X3) using TransactWriteItems
+     - Hot partition analysis per table
+     - Per-operation RCU/WCU cost estimates
+     - Verified: NO access pattern requires a full table Scan
+
+  2. Schema Validation (dynamodb-schema.md):
+     - Exact CreateTable JSON for all 3 tables
+     - Terraform resources with auto-scaling for prod
+     - GSI definitions with projection justifications
+     - TTL, PITR, SSE (KMS), and stream configuration
+     - Recommended adding dedicated `ttl` attribute to clicks table
+       (separate from `created_at` which serves as GSI sort key)
+     - LocalStack creation commands for dev
+
+  3. Atomic Patterns (atomic-patterns.md):
+     - 9 Go code patterns using aws-sdk-go-v2
+     - Conditional PutItem with collision retry
+     - Atomic click_count increment with max_clicks enforcement
+     - BatchWriteItem with UnprocessedItems retry + exponential backoff
+     - TransactWriteItems for link creation + quota decrement
+     - Lazy daily quota reset pattern
+     - Optimistic locking with version number
+     - Cross-table delete + quota update transaction
+     - Error handling summary mapping DDB errors to HTTP status codes
+
+flags:
+  - clicks table TTL: recommend separate `ttl` attribute instead of reusing `created_at`
+  - viral link hot partition: documented mitigation (SQS batching, adaptive capacity, shard option)
+  - stats queries for high-volume links (10K+ clicks): 90-day TTL bounds result set, but may still need pre-aggregation for links with >100K clicks

@@ -1,0 +1,38 @@
+Task: S2-T04 — BDD step definitions (Go godog wiring) and E2E test skeletons
+Completed: 2026-04-05
+Agent: QA Automation Engineer
+
+## Deliverables
+
+### BDD test infrastructure
+- `tests/bdd/main_test.go` — godog TestSuite runner with testing.T integration
+- `tests/bdd/steps/scenario.go` — ScenarioContext struct + InitializeScenario wiring
+- `tests/bdd/steps/common_steps.go` — 40+ shared step definitions (service setup, auth, HTTP verbs, response assertions)
+- `tests/bdd/steps/redirect_steps.go` — redirect-specific steps (click events, cache, concurrent clicks)
+- `tests/bdd/steps/create_steps.go` — creation-specific steps (alias, TTL, quota, long URL)
+- `tests/bdd/steps/ratelimit_steps.go` — rate limit steps (IP isolation, sliding window, WAF)
+- `tests/bdd/steps/password_steps.go` — password steps (CSRF, brute force, bcrypt)
+- `tests/bdd/steps/stats_steps.go` — stats steps (timeline, geo, referrers, devices, pagination)
+
+### E2E test skeletons
+- `tests/e2e/redirect_e2e_test.go` — 5 test functions
+- `tests/e2e/create_e2e_test.go` — 6 test functions
+- `tests/e2e/stats_e2e_test.go` — 5 test functions
+- `tests/e2e/auth_e2e_test.go` — 4 test functions
+- `tests/e2e/ratelimit_e2e_test.go` — 4 test functions
+
+### Fixes applied
+- Fixed `rate_limit.feature` lines 121/131: converted invalid `Because` keyword to Gherkin comments
+
+### Dependencies added
+- `github.com/cucumber/godog v0.15.1` (+ transitive deps)
+- `go mod tidy` run successfully
+
+### Verification
+- `go build ./...` — compiles cleanly
+- `go test ./tests/bdd/` — all 6 feature files parsed, all scenarios run with pending steps
+- `go test -tags=e2e ./tests/e2e/` — all 24 E2E tests compile and skip as expected
+
+### State
+All BDD step definitions return `godog.ErrPending` — red state contract established.
+E2E tests use `t.Skip()` — skeleton ready for Sprint 5 implementation.

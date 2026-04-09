@@ -1,0 +1,15 @@
+S1-T03: IAM policies, cost optimization, and Well-Architected review
+Completed: 2026-04-05
+Agent: aws-specialist
+
+Deliverables:
+- docs/aws/iam-policies.md — Exact IAM policy JSON for redirect/api/worker Lambda roles, trust policies, Terraform HCL implementation, permission matrix, security audit checklist
+- docs/aws/cost-optimization.md — Monthly cost breakdown at 1K/10K/50K RPS across 10 AWS services, 9 optimization strategies (SQS batching, WAF scoping, click aggregation, Savings Plans, reserved capacity, log retention, X-Ray sampling, CloudFront caching, ElastiCache RI), optimized totals showing 60-64% savings
+- docs/aws/well-architected.md — 5-pillar review with 16 prioritized findings, top 5 pre-launch actions, gap analysis with remediation plans
+
+Key findings:
+- SQS FIFO and WAF Bot Control are the top cost drivers at scale (combined $80K/month at 10K RPS unoptimized)
+- SQS batch operations + WAF scoping alone save ~$71K/month at 10K RPS
+- DynamoDB Global Tables not yet configured (reliability gap for RPO < 1 min target)
+- Redis AUTH token rotation not automated (security gap)
+- No k6 baseline load test results documented (performance gap)

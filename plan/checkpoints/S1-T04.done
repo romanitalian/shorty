@@ -1,0 +1,30 @@
+task: S1-T04
+title: STRIDE Threat Model and Security Architecture
+role: Security Engineer
+completed: 2026-04-05
+
+deliverables:
+  - docs/security/threat-model.md
+  - docs/security/security-architecture.md
+
+summary: |
+  Created STRIDE threat model analyzing 9 components (CloudFront/WAF, API Gateway,
+  Redirect Lambda, API Lambda, Worker Lambda, DynamoDB, ElastiCache Redis, SQS FIFO,
+  Cognito) with 40+ individual threat entries. Each threat includes likelihood,
+  impact, risk rating, specific mitigation, and residual risk.
+
+  Created security architecture document covering:
+  - URL validation pipeline with Go code (scheme blocking, private IP range blocking,
+    IDN homograph detection, DNS resolution check)
+  - Input validation rules for all API fields with max lengths and patterns
+  - Output encoding (html/template for XSS prevention)
+  - Security headers (CSP, HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy)
+  - CSRF protection with HMAC-signed tokens and SameSite=Strict cookies
+  - JWT security with RS256 algorithm pinning, JWKS caching, and full claim validation
+  - Password hashing with bcrypt cost 12 and timing-safe comparison
+  - Brute-force protection (5 attempts/15min/IP on password form)
+  - Open redirect and SSRF prevention via creation-time URL validation
+  - Dependency scanning (govulncheck, gosec, Trivy) with CI integration
+
+  Mapped all threats to OWASP Top 10 2021 categories. Top 10 risks identified
+  and ranked. All Go code examples are specific to Shorty's architecture.

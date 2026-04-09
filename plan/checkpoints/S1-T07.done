@@ -1,0 +1,58 @@
+task: S1-T07
+title: Create all Terraform modules for AWS infrastructure
+status: done
+completed: 2026-04-05
+
+deliverables:
+  - deploy/terraform/main.tf (root module wiring all 9 modules)
+  - deploy/terraform/modules/lambda/ (main.tf, variables.tf, outputs.tf)
+  - deploy/terraform/modules/dynamodb/ (main.tf, variables.tf, outputs.tf)
+  - deploy/terraform/modules/api_gateway/ (main.tf, variables.tf, outputs.tf)
+  - deploy/terraform/modules/cloudfront/ (main.tf, variables.tf, outputs.tf)
+  - deploy/terraform/modules/waf/ (main.tf, variables.tf, outputs.tf)
+  - deploy/terraform/modules/cognito/ (main.tf, variables.tf, outputs.tf)
+  - deploy/terraform/modules/elasticache/ (main.tf, variables.tf, outputs.tf)
+  - deploy/terraform/modules/sqs/ (main.tf, variables.tf, outputs.tf)
+  - deploy/terraform/modules/monitoring/ (main.tf, variables.tf, outputs.tf)
+
+summary: |
+  Created 9 Terraform modules + root module (30 files total).
+
+  lambda: 3 Lambda functions (redirect/api/worker) with per-function IAM roles
+    matching the IAM policy matrix. Provisioned concurrency on redirect alias,
+    reserved concurrency limits, SQS event source mapping for worker, X-Ray,
+    CloudWatch log groups with configurable retention.
+
+  dynamodb: 3 tables (links/clicks/users) with GSIs, TTL, PITR, SSE,
+    conditional auto-scaling (PAY_PER_REQUEST or PROVISIONED with scaling
+    policies on tables and GSIs).
+
+  api_gateway: HTTP API v2 with all 13 routes, JWT authorizer (Cognito),
+    per-route throttling, access logging, optional custom domain with
+    Route 53 record.
+
+  cloudfront: Distribution with API GW origin, cache behaviors for
+    /api/*, /p/*, /auth/*, default (redirect), security response headers
+    policy (HSTS, X-Frame-Options, etc.), custom error pages, WAF association.
+
+  waf: CLOUDFRONT-scoped Web ACL with 11 rules (IP blocklist, 3 AWS managed
+    rule groups, 3 rate-based rules, CAPTCHA, suspicious UA regex, optional
+    geo-blocking, optional Bot Control). Logging with redacted fields.
+
+  cognito: User pool with password policy, OPTIONAL MFA (TOTP), custom
+    attributes (plan/max_links/daily_limit), Google IdP (optional), PKCE
+    app client, user groups (free/pro/admin), Lambda trigger permissions.
+
+  elasticache: Redis 7 replication group with allkeys-lfu eviction, subnet
+    group, security group (Lambda-only ingress), configurable multi-AZ/failover.
+
+  sqs: FIFO queue with content-based dedup, DLQ with redrive policy
+    (maxReceiveCount=3), DLQ alarm on messages visible.
+
+  monitoring: SNS topic, CloudWatch alarms (5XX rate, p99 latency, Lambda
+    errors/throttles/cold starts, DynamoDB errors/throttles), CloudWatch
+    dashboard with API GW, Lambda, and DynamoDB widgets.
+
+  Root module wires all modules with environment-aware defaults (prod vs dev
+  for log retention, provisioned concurrency, deletion protection, multi-AZ).
+  Dual provider setup (default region + us-east-1 for CloudFront/WAF).

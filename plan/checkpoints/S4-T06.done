@@ -1,0 +1,14 @@
+task: S4-T06
+agent: go-developer
+completed_at: 2026-04-05T21:30:00Z
+outputs:
+  - cmd/redirect/main.go (B1: bcrypt password, B2: CSRF token, B3: security headers)
+  - cmd/redirect/main_test.go (updated for new csrfSecret param)
+  - cmd/api/main.go (M3: ChiLambdaV2 proxy, B3: security headers middleware, B4: body size limit)
+  - cmd/api/server.go (M1: DNS check enabled, M4: clientIP fixed, M6: field validation)
+  - internal/middleware/security.go (new: SecurityHeaders + MaxBodySize middleware)
+  - internal/shortener/shortener.go (B5: TOCTOU deferred to CreateLink, M2: errors.Is)
+  - internal/shortener/shortener_test.go (updated for B5 behavior change)
+  - pkg/apierr/errors.go (added UnprocessableEntity)
+verification: go build ./... passes, go test -race ./... passes
+next: S4-GATE check (pending S4-T03, S4-T05)

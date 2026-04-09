@@ -1,0 +1,25 @@
+task: S2-T01
+title: Initialize Go module and create project skeleton
+completed: 2026-04-05
+status: done
+
+## Deliverables
+
+1. **Go module initialized** — `go.mod` with `github.com/romanitalian/shorty`, Go 1.25.5
+2. **Dependencies added** — `github.com/aws/aws-lambda-go v1.54.0`, `github.com/go-chi/chi/v5 v5.2.5`
+3. **Lambda entry points created**:
+   - `cmd/redirect/main.go` — redirect handler stub (APIGatewayV2HTTPRequest)
+   - `cmd/api/main.go` — API handler stub (APIGatewayV2HTTPRequest)
+   - `cmd/worker/main.go` — SQS worker stub (SQSEvent)
+4. **`pkg/apierr/errors.go`** — RFC 7807 ProblemDetail type with constructors:
+   BadRequest, NotFound, Unauthorized, Forbidden, Conflict, Gone, TooManyRequests, InternalError
+5. **Internal package stubs** (doc.go files):
+   - internal/shortener, internal/store, internal/cache, internal/ratelimit
+   - internal/auth, internal/geo, internal/telemetry, internal/validator, internal/mocks
+6. **`.golangci.yml`** — configured with govet, errcheck, staticcheck, unused, gosimple,
+   ineffassign, typecheck, gocritic, gocyclo (max 15), gosec, revive. Test file exclusions applied.
+
+## Verification
+
+- `go build ./...` — PASS
+- `go vet ./...` — PASS

@@ -1,0 +1,59 @@
+task: S1-T08
+title: Terraform environment configs and GitHub Actions CI/CD workflows
+completed: 2026-04-05
+agent: devops
+
+## Deliverables
+
+### Terraform Environment Configs
+
+1. `deploy/terraform/environments/dev/main.tf`
+   - S3 backend with DynamoDB state lock (shorty-terraform-state-dev)
+   - Module call with dev values: PAY_PER_REQUEST DynamoDB, cache.t4g.micro Redis single node
+   - WAF Bot Control disabled, custom domain disabled
+   - Outputs: api_endpoint, cloudfront_domain, cognito IDs
+
+2. `deploy/terraform/environments/dev/terraform.tfvars`
+   - Placeholder VPC/subnet/SG values (actual values via TF_VAR_* in CI)
+
+3. `deploy/terraform/environments/prod/main.tf`
+   - Separate S3 backend (shorty-terraform-state-prod)
+   - PROVISIONED DynamoDB with auto-scaling enabled
+   - cache.r7g.large Redis, 2 clusters (multi-AZ + automatic failover)
+   - WAF Bot Control enabled, Google IdP enabled
+   - Redis AUTH token, origin verify secret as sensitive vars
+
+4. `deploy/terraform/environments/prod/terraform.tfvars`
+   - Placeholder values, sensitive values documented for TF_VAR_* injection
+
+### GitHub Actions Workflows
+
+5. `.github/workflows/ci.yml` — PR pipeline (6 jobs):
+   - spec-validate: Spectral lint of openapi.yaml
+   - check: gofmt, go vet, golangci-lint v1.57, gosec
+   - test: unit tests with -race, coverage >= 80% gate
+   - bdd: godog with LocalStack + Redis services
+   - test-integration: integration tests with LocalStack + Redis
+   - build: linux/arm64 Lambda zips, uploaded as artifacts
+
+6. `.github/workflows/deploy-dev.yml` — push to main:
+   - Full CI gates (spec, check, test, bdd, build)
+   - Terraform apply to dev (OIDC assume role)
+   - E2E tests against dev
+   - k6 baseline load test
+
+7. `.github/workflows/deploy-prod.yml` — tag v*:
+   - Full CI gates
+   - Manual approval via GitHub environment: production
+   - Terraform apply to prod
+   - Canary: 10% traffic via Lambda alias weighted routing
+   - 10-minute monitoring (error rate threshold 1%)
+   - Auto-rollback on failure, promote to 100% on success
+
+## Technical Notes
+- All workflows use Go 1.23, pinned action versions (checkout@v4, setup-go@v5)
+- Go module caching via setup-go cache: true
+- AWS auth via OIDC (id-token: write permission)
+- Terraform 1.7.5 via hashicorp/setup-terraform@v3
+- Concurrency groups prevent parallel deploys to same environment
+- Dev and prod use separate S3 state buckets + DynamoDB lock tables
