@@ -1,0 +1,9 @@
+task: S5-T06
+agent: go-developer
+completed_at: 2026-04-05T23:45:00Z
+outputs:
+  - internal/auth/cognito.go (B1: token_use validation, B3: JWKS refresh rate limiting)
+  - internal/auth/auth_test.go (updated validClaims with token_use)
+  - cmd/worker/main.go (B2: UserAgentHash now hashes UA string, not IP)
+verification: go build ./... passes, go test -race ./... passes
+next: S5-GATE → Sprint 6

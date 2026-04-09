@@ -1,0 +1,10 @@
+task: S0-T01
+agent: pm
+completed_at: 2026-04-05T00:00:00Z
+outputs:
+  - docs/product/backlog.md
+  - docs/product/mvp-scope.md
+  - docs/product/acceptance-criteria.md
+  - docs/product/kpis.md
+verification: all four files exist and are non-empty
+next: S0-T07 (unblocked after S0-T01 + S0-T02)

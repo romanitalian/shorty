@@ -1,0 +1,114 @@
+# Shorty — Core development stack
+# Usage: docker compose up -d
+# With observability: docker compose -f docker-compose.yml -f docker-compose.infra.yml up -d
+
+services:
+  localstack:
+    image: localstack/localstack:3
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: dynamodb,sqs,s3,secretsmanager,iam
+      DEBUG: 0
+      PERSISTENCE: 1
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./deploy/scripts/localstack-init.sh:/etc/localstack/init/ready.d/localstack-init.sh:ro
+    healthcheck:
+      test: ["CMD", "bash", "-c", "awslocal sts get-caller-identity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - shorty-net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lfu
+      --save ""
+      --appendonly no
+      --tcp-keepalive 60
+      --timeout 300
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - shorty-net
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "${APP_PORT_API:-8080}:8080"
+    env_file: .env
+    environment:
+      APP_ENV: local
+      APP_PORT: "8080"
+      DYNAMODB_ENDPOINT: http://localstack:4566
+      REDIS_ADDR: redis:6379
+      SQS_ENDPOINT: http://localstack:4566
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/click-events.fifo
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SERVICE_NAME: shorty-api
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    working_dir: /app
+    command: ["air", "-c", ".air.api.toml"]
+    depends_on:
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shorty-net
+
+  redirect:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "${APP_PORT_REDIRECT:-8081}:8081"
+    env_file: .env
+    environment:
+      APP_ENV: local
+      APP_PORT: "8081"
+      DYNAMODB_ENDPOINT: http://localstack:4566
+      REDIS_ADDR: redis:6379
+      SQS_ENDPOINT: http://localstack:4566
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/click-events.fifo
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SERVICE_NAME: shorty-redirect
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    working_dir: /app
+    command: ["air", "-c", ".air.redirect.toml"]
+    depends_on:
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shorty-net
+
+volumes:
+  localstack-data:
+  go-mod-cache:
+  go-build-cache:
+
+networks:
+  shorty-net:
+    driver: bridge

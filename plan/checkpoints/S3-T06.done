@@ -1,0 +1,36 @@
+S3-T06: internal/telemetry, internal/geo, internal/mocks — DONE
+
+Completed: 2026-04-05
+
+## Deliverables
+
+### 1. internal/telemetry/telemetry.go
+- Config struct with ServiceName, ServiceVersion, Environment, OTLPEndpoint
+- Init() creates OTLP gRPC trace exporter with resource attributes (service.name, service.version, deployment.environment)
+- Empty OTLPEndpoint installs no-op TracerProvider (safe for tests)
+- Returns shutdown function for graceful cleanup
+
+### 2. internal/telemetry/telemetry_test.go
+- TestInit_EmptyEndpoint_ReturnsNoOp: verifies no-op tracer, non-recording spans
+- TestInit_ShutdownCallable: verifies shutdown is safe to call multiple times
+
+### 3. internal/geo/geo.go
+- Resolver interface: Country(ctx, ip) string, DeviceType(ctx, userAgent) string
+- StubResolver: Country returns "XX", DeviceType detects mobile/bot/desktop via UA string matching
+
+### 4. internal/geo/geo_test.go
+- Tests for desktop, mobile, bot detection (including bot-with-mobile-UA edge case)
+- Tests for unknown country default across various IPs
+
+### 5. internal/mocks/
+- MockStore (store_mock.go) — all 9 Store interface methods
+- MockCache (cache_mock.go) — all 5 Cache interface methods
+- MockLimiter (limiter_mock.go) — Allow method
+- MockGenerator (generator_mock.go) — Generate, GenerateCustom
+- MockValidator (validator_mock.go) — ValidateURL
+- MockGeoResolver (geo_mock.go) — Country, DeviceType
+
+### 6. Verification
+- go mod tidy: added go.opentelemetry.io/otel, otel/sdk, otel/exporters/otlp/otlptrace/otlptracegrpc
+- go build ./...: PASS
+- go test ./... -race -short -count=1: ALL PASS

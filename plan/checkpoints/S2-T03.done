@@ -1,0 +1,44 @@
+task: S2-T03
+title: Create BDD feature files for password_link, ttl_expiry, and stats
+status: done
+completed: 2026-04-05
+agent: qa-automation
+
+deliverables:
+  - tests/bdd/features/password_link.feature (11 scenarios including Scenario Outline)
+  - tests/bdd/features/ttl_expiry.feature (12 scenarios including Scenario Outline)
+  - tests/bdd/features/stats.feature (14 scenarios including Scenario Outline)
+
+summary: |
+  Created three BDD Gherkin feature files derived from the acceptance criteria
+  in docs/product/acceptance-criteria.md and the requirements in requirements-init.md
+  sections 2.1-2.3.
+
+  password_link.feature: Covers password form display (GET returns HTML with CSRF),
+  correct/wrong password submission via POST /p/{code}, CSRF token validation (missing
+  and invalid tokens return 403), brute force lockout (5 wrong attempts in 15 min yields
+  429 with Retry-After), lockout expiry after 15 minutes, bcrypt storage verification,
+  and non-password links redirecting directly. Includes Scenario Outline for attempt
+  counting boundary conditions.
+
+  ttl_expiry.feature: Covers time-based TTL (active before, 410 after), click-based
+  TTL (active until max_clicks, 410 on N+1), combined TTL (whichever triggers first),
+  anonymous 24-hour max TTL enforcement, no-TTL links staying active, DynamoDB TTL
+  auto-deletion, expired link showing 410 not 404, and atomic click count correctness
+  under concurrency. Includes Scenario Outline for click boundary conditions.
+
+  stats.feature: Covers aggregate stats (total/unique clicks), timeline by period
+  (hour/day/week/month via Scenario Outline), geography breakdown, referrer sources,
+  device type breakdown, owner-only access (403 for others, 401 for anonymous), zero
+  clicks returning empty data, eventual consistency within seconds, free tier 30-day
+  history limit, IP hash verification, and pagination for large datasets.
+
+  All files use proper Gherkin syntax with tags (@password, @ttl, @stats, @security,
+  @happy-path, @error-path), Background sections, and Scenario Outlines with Examples.
+  All scenarios are in RED state -- they will fail at runtime until implementation exists.
+
+notes:
+  - Feature files align with openapi.yaml endpoints and acceptance-criteria.md
+  - Tags enable selective execution: make bdd-feature FEATURE=password
+  - Scenarios reference exact HTTP status codes from requirements (302, 401, 403, 410, 429)
+  - Password brute force threshold: 5 attempts/15 min/IP per requirements-init.md section 13

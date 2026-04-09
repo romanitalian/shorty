@@ -1,0 +1,27 @@
+task: S1-T06
+title: Docker Compose files, .env.example, and Air hot-reload configs
+completed: 2026-04-05
+agent: devops
+
+files_created:
+  - docker-compose.yml               # Core dev stack: localstack, redis, api, redirect
+  - docker-compose.infra.yml          # Observability: prometheus, grafana, jaeger, loki, promtail
+  - .env.example                      # All env vars with defaults and comments
+  - .air.api.toml                     # Air hot-reload for cmd/api
+  - .air.redirect.toml                # Air hot-reload for cmd/redirect
+  - deploy/scripts/localstack-init.sh # Creates DynamoDB tables, SQS queues, secrets
+  - Dockerfile.dev                    # Dev image with Go + Air
+  - config/prometheus/prometheus.yml
+  - config/grafana/provisioning/datasources/datasources.yml
+  - config/grafana/provisioning/dashboards/dashboards.yml
+  - config/loki/loki-config.yml
+  - config/promtail/promtail-config.yml
+
+notes:
+  - All service images pinned to specific versions (no :latest)
+  - DynamoDB tables match exact schema from docs/db/dynamodb-schema.md (shorty-links, shorty-clicks, shorty-users with GSIs)
+  - Redis configured with allkeys-lfu eviction policy per docs/db/redis-design.md
+  - LocalStack init script uses awslocal CLI, creates DLQ for SQS
+  - Health checks with intervals and retries on localstack and redis
+  - Named volumes for localstack data persistence and Go module/build caches
+  - Network: shorty-net bridge shared across both compose files

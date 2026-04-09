@@ -1,0 +1,37 @@
+task: S4-T04
+title: Redirect critical path analysis, benchmark specs, escape analysis, Lambda memory sizing
+completed: 2026-04-05
+agent: performance-engineer
+
+deliverables:
+  - docs/performance/critical-path.md
+  - docs/performance/benchmarks.md
+  - docs/performance/allocations.md
+  - docs/performance/lambda-sizing.md
+
+summary: |
+  Analyzed the redirect hot path (cmd/redirect/main.go) end-to-end.
+
+  Key findings:
+  - Cache HIT path: 5-11ms, Cache MISS path: 8-20ms (both well within 100ms p99 target)
+  - F5 (HIGH): DynamoDB click increment is the largest latency contributor (3-8ms) on EVERY request.
+    For links without max_clicks, defer to SQS worker to save 3-8ms on the common path.
+  - F1 (MEDIUM): Cache warm (Redis SET) is synchronous; should be fire-and-forget goroutine.
+  - F3/F4 (LOW): fmt.Sprintf and uuid.New() cause unnecessary allocations in the hot path.
+
+  Benchmark specs cover 8 benchmarks across 4 packages with expected ns/op and allocs/op targets.
+
+  Allocation analysis identified ~12 heap allocations per cache-hit request (~1,100 bytes).
+  Quick wins (O1+O2+O3) save 5 allocations and 320 bytes per request with minimal code changes.
+
+  Lambda sizing: redirect=512MB, api=256MB, worker=128MB.
+  Provisioned concurrency: start at 10, auto-scale to 150 for production.
+  Estimated Lambda cost at 10K RPS: $41-420/month depending on provisioned concurrency.
+
+findings:
+  - HIGH: Click increment DynamoDB call blocks every redirect; defer for non-max_clicks links
+  - MEDIUM: Cache warm is synchronous on critical path; move to goroutine
+  - MEDIUM: uuid.New() in rate limiter generates unnecessary allocations
+  - LOW: fmt.Sprintf used for simple string concatenation in hot path
+  - LOW: Redis pool size 10 is oversized for Lambda (recommend 2)
+  - LOW: Secrets Manager fetch in init() adds 100-200ms to cold start

@@ -1,0 +1,47 @@
+Task: S3-T04 — Implement redirect Lambda handler
+Completed: 2026-04-05
+
+## Deliverables
+
+### 1. cmd/redirect/main.go — Full redirect Lambda handler
+- RedirectHandler struct with injected dependencies (store, cache, limiter, SQS, ipSalt)
+- Full request flow: extract code → rate limit → cache check → negative cache → DynamoDB fallback → cache warm → TTL check → active check → password check → click increment → async SQS → 302 redirect
+- IP hashing via SHA-256(salt + IP) per ADR-007
+- Async SQS click event publishing in goroutine with 2s timeout per ADR-003
+- Rate limiting before any business logic per ADR-006
+- Cache-first strategy per ADR-002 with negative cache support
+- UTM parameter appending to redirect URL
+- Password-protected link HTML form (403 response)
+- Lambda init() loads AWS config, DynamoDB, Redis, SQS, and IP salt from Secrets Manager
+- All error responses as JSON with proper status codes (400, 404, 410, 429, 500)
+
+### 2. cmd/redirect/main_test.go — 18 handler tests
+- Successful redirect (302)
+- Redirect with UTM params
+- Rate limited (429) with headers
+- Not found (404) with negative cache set
+- Negative cache hit (404, no DynamoDB call)
+- Expired link (410)
+- Deactivated link (410)
+- Click limit reached (410)
+- Password-protected link shows form (403)
+- Cache hit path (no DynamoDB call)
+- Cache miss path (DynamoDB fallback + cache warm)
+- Async SQS publish verification
+- Missing code (400)
+- HashIP determinism and uniqueness
+- extractCode path parsing
+- buildRedirectURL with/without UTM
+- Store internal error (500)
+- IncrementClickCount error (500)
+
+### 3. Build & test verification
+- `go mod tidy` — clean
+- `go build ./...` — passes
+- `go test ./cmd/redirect/... -race` — 18/18 PASS, no race conditions
+
+## Dependencies added
+- github.com/aws/aws-sdk-go-v2/config
+- github.com/aws/aws-sdk-go-v2/service/sqs
+- github.com/aws/aws-sdk-go-v2/service/secretsmanager
+- github.com/aws/aws-sdk-go-v2/service/dynamodb (already indirect, now direct)

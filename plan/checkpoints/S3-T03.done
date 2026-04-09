@@ -1,0 +1,32 @@
+S3-T03: internal/ratelimit — Redis sliding window rate limiter with Lua script
+Completed: 2026-04-05
+
+## Deliverables
+
+1. internal/ratelimit/ratelimit.go — RedisLimiter with embedded Lua script (EVALSHA via redis.NewScript)
+2. internal/ratelimit/config.go — Tier definitions (AnonymousRedirect, AnonymousCreate, FreeCreate, ProCreate, PasswordAttempt)
+3. internal/ratelimit/middleware.go — SetRateLimitHeaders helper for X-RateLimit-* and Retry-After headers
+4. internal/ratelimit/ratelimit_test.go — 11 tests covering all required scenarios
+
+## Test Results
+
+All 11 tests PASS with -race:
+- TestAllowUnderLimit
+- TestDenyAtLimit
+- TestSlidingWindowExpiry (injectable clock)
+- TestResultFieldsCorrect
+- TestIndependentKeys
+- TestFailOpenWhenRedisUnavailable
+- TestFailClosedWhenRedisUnavailable
+- TestConcurrentRequests (20 goroutines, verifies Lua atomicity)
+- TestSetRateLimitHeaders (allowed + denied)
+- TestSetRateLimitHeadersHTTP429
+- TestTierValues
+
+## Design Decisions
+
+- Clock is injectable via WithClock option (func() time.Time) for deterministic testing
+- FailurePolicy (FailOpen/FailClosed) is configurable per limiter instance
+- Lua script uses sorted set with unique request IDs (timestamp:uuid) as members, millisecond timestamps as scores
+- Script registered via redis.NewScript for automatic EVALSHA optimization
+- Scripter interface accepts redis.Scripter for testability

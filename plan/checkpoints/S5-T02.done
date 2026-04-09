@@ -1,0 +1,10 @@
+task: S5-T02
+agent: go-developer
+completed_at: 2026-04-05T23:00:00Z
+outputs:
+  - internal/auth/auth.go (Claims, Authenticator interface)
+  - internal/auth/cognito.go (CognitoAuthenticator)
+  - internal/auth/middleware.go (Chi middleware + context helpers)
+  - internal/auth/auth_test.go (9 test cases)
+verification: go build ./... passes, go test -race ./internal/auth/... passes (9/9)
+next: S5-T03 (unblocked after S5-T01)

@@ -1,0 +1,28 @@
+task: S1-T09
+title: Create wireframes, design system, user flows, and accessibility documentation
+status: done
+completed: 2026-04-05
+agent: designer
+
+deliverables:
+  - docs/design/wireframes.md
+  - docs/design/design-system.md
+  - docs/design/user-flows.md
+  - docs/design/accessibility.md
+
+summary: |
+  Created 4 design documents covering all MVP screens and interactions:
+  - wireframes.md: ASCII wireframes for 6 screens (landing, password entry, login/register,
+    dashboard, link detail+stats, quota/settings) with component annotations, states, and
+    responsive notes
+  - design-system.md: Complete design tokens (colors with dark mode, typography with Inter/JetBrains Mono,
+    spacing scale, border radius, shadows, z-index) and 10 component definitions
+    (Button, Input, Card, Table, Badge, Modal, Toast, Dropdown, ProgressBar, Pagination)
+    with Lucide icon set and motion/animation tokens
+  - user-flows.md: 6 user flows with happy paths and error branches (anonymous shorten,
+    Google SSO register, authenticated create with alias, password-protected redirect,
+    view stats, rate limit scenarios)
+  - accessibility.md: WCAG 2.1 AA compliance checklist covering color contrast verification,
+    keyboard navigation with tab order per screen, ARIA labels/roles/live regions,
+    form accessibility patterns, motion preferences, dark mode contrast, touch targets
+    (44x44px minimum), page structure (titles, headings, lang), and testing checklists
