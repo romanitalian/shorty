@@ -1,0 +1,44 @@
+# Air hot-reload config for Redirect service
+# Docs: https://github.com/air-verse/air
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  bin = "./tmp/redirect"
+  cmd = "go build -o ./tmp/redirect ./cmd/redirect"
+  delay = 1000
+  exclude_dir = ["tmp", "vendor", ".git", "node_modules", "tests", "docs", "deploy", "config"]
+  exclude_file = ["_test.go"]
+  exclude_regex = ["_test\\.go$"]
+  exclude_unchanged = false
+  follow_symlink = false
+  full_bin = "APP_PORT=8081 ./tmp/redirect"
+  include_dir = ["cmd/redirect", "internal"]
+  include_ext = ["go", "toml", "yaml"]
+  kill_delay = "0s"
+  log = "build-errors-redirect.log"
+  poll = false
+  poll_interval = 0
+  rerun = false
+  rerun_delay = 500
+  send_interrupt = true
+  stop_on_error = true
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  time = false
+
+[misc]
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = false
+  keep_scroll = true

@@ -1,0 +1,372 @@
+# .github/workflows/deploy-prod.yml
+#
+# Production deployment triggered by semver tags (v*.*.*).
+# Requires manual approval via GitHub environment protection rules.
+# Canary deployment: 10% traffic -> monitor 10 min -> promote or rollback.
+
+name: Deploy Prod
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  id-token: write   # OIDC for AWS assume role
+  contents: read
+
+env:
+  GO_VERSION: "1.23"
+  TF_VERSION: "1.7.5"
+  AWS_REGION: us-east-1
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # CI gates (full validation before any prod deployment)
+  # ---------------------------------------------------------------------------
+  spec-validate:
+    name: Spec Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Spectral
+        run: npm install -g @stoplight/spectral-cli@6
+      - name: Validate OpenAPI spec
+        run: spectral lint docs/api/openapi.yaml --fail-severity warn
+
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Go fmt
+        run: |
+          output=$(gofmt -l .)
+          if [ -n "$output" ]; then
+            echo "$output"
+            exit 1
+          fi
+      - name: Go vet
+        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: v1.57
+          args: --timeout=5m
+      - name: gosec
+        uses: securego/gosec@v2.20.0
+        with:
+          args: -exclude-generated ./...
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [check]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Run unit tests
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, spec-validate]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Build Lambda binaries
+        run: make build
+        env:
+          GOOS: linux
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+      - name: Upload Lambda artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-artifacts
+          path: .build/*.zip
+          retention-days: 30
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Manual approval gate
+  # ---------------------------------------------------------------------------
+  approve:
+    name: Approval Gate
+    runs-on: ubuntu-latest
+    needs: [build]
+    environment: production
+    steps:
+      - name: Approval confirmed
+        run: echo "Production deployment approved for ${{ github.ref_name }}"
+
+  # ---------------------------------------------------------------------------
+  # Deploy infrastructure + upload Lambda code
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to Prod
+    runs-on: ubuntu-latest
+    needs: [approve]
+    environment: production
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
+    outputs:
+      redirect_version: ${{ steps.publish.outputs.redirect_version }}
+      api_version: ${{ steps.publish.outputs.api_version }}
+      worker_version: ${{ steps.publish.outputs.worker_version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Lambda artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-artifacts
+          path: .build/
+
+      - name: Upload Lambda zips to S3
+        run: |
+          for fn in redirect api worker; do
+            aws s3 cp .build/${fn}.zip s3://shorty-prod-artifacts/${fn}.zip
+          done
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: deploy/terraform/environments/prod
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: deploy/terraform/environments/prod
+        run: terraform plan -out=tfplan -input=false
+
+      - name: Terraform Apply
+        working-directory: deploy/terraform/environments/prod
+        run: terraform apply -auto-approve -input=false tfplan
+
+      - name: Update Lambda function code and publish versions
+        id: publish
+        run: |
+          for fn in redirect api worker; do
+            aws lambda update-function-code \
+              --function-name shorty-prod-${fn} \
+              --s3-bucket shorty-prod-artifacts \
+              --s3-key ${fn}.zip
+            aws lambda wait function-updated --function-name shorty-prod-${fn}
+            VERSION=$(aws lambda publish-version \
+              --function-name shorty-prod-${fn} \
+              --query 'Version' --output text)
+            echo "${fn}_version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "Published shorty-prod-${fn} version ${VERSION}"
+          done
+
+  # ---------------------------------------------------------------------------
+  # Canary: shift 10% traffic to new version
+  # ---------------------------------------------------------------------------
+  canary:
+    name: Canary (10% traffic)
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get current live versions
+        id: current
+        run: |
+          for fn in redirect api worker; do
+            CURRENT=$(aws lambda get-alias \
+              --function-name shorty-prod-${fn} \
+              --name live \
+              --query 'FunctionVersion' --output text 2>/dev/null || echo "0")
+            echo "${fn}_current=${CURRENT}" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Shift 10% traffic to new versions
+        run: |
+          shift_traffic() {
+            local fn=$1
+            local new_version=$2
+            local current_version=$3
+
+            if [ "$current_version" = "0" ] || [ "$current_version" = "$new_version" ]; then
+              # First deploy or same version — point alias directly
+              aws lambda update-alias \
+                --function-name shorty-prod-${fn} \
+                --name live \
+                --function-version "${new_version}" \
+                --routing-config "{}"
+            else
+              # Canary: 90% current, 10% new
+              aws lambda update-alias \
+                --function-name shorty-prod-${fn} \
+                --name live \
+                --function-version "${current_version}" \
+                --routing-config "{\"AdditionalVersionWeights\":{\"${new_version}\":0.1}}"
+            fi
+          }
+
+          shift_traffic redirect \
+            "${{ needs.deploy.outputs.redirect_version }}" \
+            "${{ steps.current.outputs.redirect_current }}"
+          shift_traffic api \
+            "${{ needs.deploy.outputs.api_version }}" \
+            "${{ steps.current.outputs.api_current }}"
+          shift_traffic worker \
+            "${{ needs.deploy.outputs.worker_version }}" \
+            "${{ steps.current.outputs.worker_current }}"
+
+          echo "Canary deployment active: 10% traffic on new versions"
+
+  # ---------------------------------------------------------------------------
+  # Monitor canary for 10 minutes — rollback if error rate > 1%
+  # ---------------------------------------------------------------------------
+  verify:
+    name: Verify Canary (10 min)
+    runs-on: ubuntu-latest
+    needs: [canary, deploy]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Monitor error rate for 10 minutes
+        id: monitor
+        run: |
+          echo "Monitoring canary deployment for 10 minutes..."
+          FAILED=false
+
+          for i in $(seq 1 10); do
+            sleep 60
+            echo "--- Check $i/10 (minute $i) ---"
+
+            for fn in redirect api; do
+              ERRORS=$(aws cloudwatch get-metric-statistics \
+                --namespace AWS/Lambda \
+                --metric-name Errors \
+                --dimensions Name=FunctionName,Value=shorty-prod-${fn} \
+                --start-time "$(date -u -d '2 minutes ago' +%Y-%m-%dT%H:%M:%S)" \
+                --end-time "$(date -u +%Y-%m-%dT%H:%M:%S)" \
+                --period 60 \
+                --statistics Sum \
+                --query 'Datapoints[0].Sum' --output text 2>/dev/null || echo "0")
+
+              INVOCATIONS=$(aws cloudwatch get-metric-statistics \
+                --namespace AWS/Lambda \
+                --metric-name Invocations \
+                --dimensions Name=FunctionName,Value=shorty-prod-${fn} \
+                --start-time "$(date -u -d '2 minutes ago' +%Y-%m-%dT%H:%M:%S)" \
+                --end-time "$(date -u +%Y-%m-%dT%H:%M:%S)" \
+                --period 60 \
+                --statistics Sum \
+                --query 'Datapoints[0].Sum' --output text 2>/dev/null || echo "0")
+
+              if [ "$INVOCATIONS" != "0" ] && [ "$INVOCATIONS" != "None" ] && [ "$ERRORS" != "None" ]; then
+                ERROR_RATE=$(echo "scale=4; ${ERRORS:-0} / ${INVOCATIONS} * 100" | bc -l 2>/dev/null || echo "0")
+                echo "  ${fn}: errors=${ERRORS:-0}, invocations=${INVOCATIONS}, error_rate=${ERROR_RATE}%"
+
+                THRESHOLD_CHECK=$(echo "${ERROR_RATE} > 1.0" | bc -l 2>/dev/null || echo "0")
+                if [ "$THRESHOLD_CHECK" = "1" ]; then
+                  echo "ERROR: ${fn} error rate ${ERROR_RATE}% exceeds 1% threshold!"
+                  FAILED=true
+                fi
+              else
+                echo "  ${fn}: no traffic yet (invocations=${INVOCATIONS:-0})"
+              fi
+            done
+          done
+
+          if [ "$FAILED" = "true" ]; then
+            echo "canary_status=failed" >> "$GITHUB_OUTPUT"
+            echo "Canary FAILED — triggering rollback"
+            exit 1
+          else
+            echo "canary_status=passed" >> "$GITHUB_OUTPUT"
+            echo "Canary PASSED — safe to promote"
+          fi
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Rolling back canary — removing weighted routing"
+          for fn in redirect api worker; do
+            CURRENT=$(aws lambda get-alias \
+              --function-name shorty-prod-${fn} \
+              --name live \
+              --query 'FunctionVersion' --output text)
+            aws lambda update-alias \
+              --function-name shorty-prod-${fn} \
+              --name live \
+              --function-version "${CURRENT}" \
+              --routing-config "{}"
+            echo "Rolled back shorty-prod-${fn} to version ${CURRENT}"
+          done
+          echo "Rollback complete — all traffic on previous stable version"
+
+  # ---------------------------------------------------------------------------
+  # Promote: shift 100% traffic to new version
+  # ---------------------------------------------------------------------------
+  promote:
+    name: Promote (100% traffic)
+    runs-on: ubuntu-latest
+    needs: [verify, deploy]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Promote new versions to 100%
+        run: |
+          promote() {
+            local fn=$1
+            local version=$2
+            aws lambda update-alias \
+              --function-name shorty-prod-${fn} \
+              --name live \
+              --function-version "${version}" \
+              --routing-config "{}"
+            echo "Promoted shorty-prod-${fn} to version ${version} (100%)"
+          }
+
+          promote redirect "${{ needs.deploy.outputs.redirect_version }}"
+          promote api "${{ needs.deploy.outputs.api_version }}"
+          promote worker "${{ needs.deploy.outputs.worker_version }}"
+
+          echo ""
+          echo "Production deployment complete: ${{ github.ref_name }}"

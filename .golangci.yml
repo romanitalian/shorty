@@ -1,0 +1,59 @@
+run:
+  timeout: 5m
+  go: "1.23"
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+    - gocritic
+    - gocyclo
+    - gosec
+    - revive
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: exported
+      - name: increment-decrement
+      - name: var-naming
+      - name: package-comments
+  gosec:
+    excludes:
+      - G104 # unhandled errors in deferred calls
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - gocritic
+    - path: internal/mocks/
+      linters:
+        - errcheck
+        - unused
+        - revive
+    - path: doc\.go
+      linters:
+        - revive
+
+severity:
+  default-severity: error
