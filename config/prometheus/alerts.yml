@@ -1,0 +1,317 @@
+groups:
+  # --------------------------------------------------------------------------
+  # SLO burn rate alerts (multi-window strategy from docs/sre/slo.md)
+  # --------------------------------------------------------------------------
+  - name: shorty-slo
+    rules:
+      - alert: SLOBurnRateCritical1h
+        expr: |
+          (
+            sum(rate(shorty_redirects_total{status=~"5.."}[1h]))
+            /
+            sum(rate(shorty_redirects_total[1h]))
+          ) > (14.4 * 0.001)
+          and
+          (
+            sum(rate(shorty_redirects_total{status=~"5.."}[5m]))
+            /
+            sum(rate(shorty_redirects_total[5m]))
+          ) > (14.4 * 0.001)
+        for: 2m
+        labels:
+          severity: critical
+          service: shorty
+          slo: availability
+        annotations:
+          summary: "SLO burn rate critical -- 14.4x in 1h window"
+          description: >-
+            The redirect service error rate is consuming the 30-day error budget
+            at 14.4x the sustainable rate. At this pace, 2% of the monthly error
+            budget will be exhausted in 1 hour. Immediate action required.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/high-error-rate.md"
+
+      - alert: SLOBurnRateWarning6h
+        expr: |
+          (
+            sum(rate(shorty_redirects_total{status=~"5.."}[6h]))
+            /
+            sum(rate(shorty_redirects_total[6h]))
+          ) > (6 * 0.001)
+          and
+          (
+            sum(rate(shorty_redirects_total{status=~"5.."}[30m]))
+            /
+            sum(rate(shorty_redirects_total[30m]))
+          ) > (6 * 0.001)
+        for: 5m
+        labels:
+          severity: warning
+          service: shorty
+          slo: availability
+        annotations:
+          summary: "SLO burn rate warning -- 6x in 6h window"
+          description: >-
+            The redirect service error rate is consuming the 30-day error budget
+            at 6x the sustainable rate. At this pace, 5% of the monthly error
+            budget will be exhausted in 6 hours. Investigate promptly.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/high-error-rate.md"
+
+      - alert: SLOBurnRateSlowLeak24h
+        expr: |
+          (
+            sum(rate(shorty_redirects_total{status=~"5.."}[24h]))
+            /
+            sum(rate(shorty_redirects_total[24h]))
+          ) > (3 * 0.001)
+          and
+          (
+            sum(rate(shorty_redirects_total{status=~"5.."}[2h]))
+            /
+            sum(rate(shorty_redirects_total[2h]))
+          ) > (3 * 0.001)
+        for: 15m
+        labels:
+          severity: warning
+          service: shorty
+          slo: availability
+        annotations:
+          summary: "SLO burn rate elevated -- 3x in 24h window"
+          description: >-
+            The redirect service error rate is consuming the 30-day error budget
+            at 3x the sustainable rate. 10% of the monthly budget will be consumed
+            in 24 hours if the trend continues.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/high-error-rate.md"
+
+      - alert: ErrorBudgetNearlyExhausted
+        expr: |
+          (
+            1 - (
+              sum(increase(shorty_redirects_total{status=~"5.."}[30d]))
+              /
+              (sum(increase(shorty_redirects_total[30d])) * 0.001)
+            )
+          ) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          service: shorty
+          slo: availability
+        annotations:
+          summary: "Error budget below 10% -- entering Red zone"
+          description: >-
+            Less than 10% of the 30-day error budget remains. Per error budget
+            policy, only P1/P2 incident fixes may be deployed. All engineering
+            effort should be directed at reliability.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/high-error-rate.md"
+
+  # --------------------------------------------------------------------------
+  # Redirect service alerts
+  # --------------------------------------------------------------------------
+  - name: shorty-redirect
+    rules:
+      - alert: RedirectHighLatencyP99
+        expr: |
+          histogram_quantile(0.99, sum(rate(shorty_redirect_duration_seconds_bucket[5m])) by (le)) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: shorty-redirect
+        annotations:
+          summary: "Redirect p99 latency exceeds 100ms SLO target"
+          description: >-
+            The 99th percentile redirect latency is {{ $value | humanizeDuration }}
+            which exceeds the 100ms SLO target. Check Redis cache health and
+            DynamoDB read latency.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/high-error-rate.md"
+
+      - alert: RedirectHighLatencyP99Critical
+        expr: |
+          histogram_quantile(0.99, sum(rate(shorty_redirect_duration_seconds_bucket[5m])) by (le)) > 0.5
+        for: 5m
+        labels:
+          severity: critical
+          service: shorty-redirect
+        annotations:
+          summary: "Redirect p99 latency exceeds 500ms -- critically degraded"
+          description: >-
+            The 99th percentile redirect latency is {{ $value | humanizeDuration }}
+            which is 5x the 100ms SLO target. Likely a downstream dependency failure.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/high-error-rate.md"
+
+      - alert: RedirectHighErrorRate
+        expr: |
+          sum(rate(shorty_redirects_total{status=~"5.."}[5m]))
+          /
+          sum(rate(shorty_redirects_total[5m]))
+          * 100 > 1
+        for: 2m
+        labels:
+          severity: critical
+          service: shorty-redirect
+        annotations:
+          summary: "Redirect 5xx error rate above 1%"
+          description: >-
+            The redirect service 5xx error rate is {{ $value | printf "%.2f" }}%
+            which exceeds the 1% alert threshold (SLO target: 0.1%).
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/high-error-rate.md"
+
+      - alert: RedirectCacheHitRateLow
+        expr: |
+          sum(rate(shorty_cache_hits_total{result="hit"}[5m]))
+          /
+          (sum(rate(shorty_cache_hits_total{result="hit"}[5m])) + sum(rate(shorty_cache_hits_total{result="miss"}[5m])))
+          < 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: shorty-redirect
+        annotations:
+          summary: "Cache hit ratio below 80%"
+          description: >-
+            The Redis cache hit ratio has dropped to {{ $value | printf "%.1f" }}%.
+            This will increase DynamoDB read load and redirect latency.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/redis-connection-exhaustion.md"
+
+  # --------------------------------------------------------------------------
+  # Infrastructure alerts
+  # --------------------------------------------------------------------------
+  - name: shorty-infrastructure
+    rules:
+      - alert: DynamoDBThrottling
+        expr: |
+          sum by (table) (rate(shorty_dynamodb_throttled_requests_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: dynamodb
+        annotations:
+          summary: "DynamoDB throttling detected on table {{ $labels.table }}"
+          description: >-
+            DynamoDB table {{ $labels.table }} is experiencing throttled requests.
+            Check for hot partitions or insufficient provisioned capacity.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/dynamodb-throttling.md"
+
+      - alert: DynamoDBThrottlingSustained
+        expr: |
+          sum by (table) (rate(shorty_dynamodb_throttled_requests_total[5m])) > 10
+        for: 5m
+        labels:
+          severity: critical
+          service: dynamodb
+        annotations:
+          summary: "Sustained DynamoDB throttling on table {{ $labels.table }}"
+          description: >-
+            DynamoDB table {{ $labels.table }} has sustained throttling at
+            {{ $value | printf "%.1f" }} req/s for over 5 minutes.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/dynamodb-throttling.md"
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis is unreachable"
+          description: >-
+            The Redis instance is not responding to scrapes. Redirect service
+            will fall back to DynamoDB, increasing latency significantly.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/redis-connection-exhaustion.md"
+
+      - alert: RedisHighConnectionCount
+        expr: |
+          shorty_redis_connected_clients > 4000
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis connection count approaching limit"
+          description: >-
+            Redis has {{ $value }} active connections, which is above 80% of
+            the configured pool limit. Risk of connection exhaustion.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/redis-connection-exhaustion.md"
+
+      - alert: RedisHighMemoryUsage
+        expr: |
+          shorty_redis_memory_used_bytes / shorty_redis_memory_max_bytes > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis memory usage above 85%"
+          description: >-
+            Redis is using {{ $value | printf "%.0f" }}% of its maximum configured
+            memory. Eviction policies may start dropping keys.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/redis-connection-exhaustion.md"
+
+      - alert: SQSDLQNotEmpty
+        expr: shorty_sqs_dlq_messages_visible > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: sqs
+        annotations:
+          summary: "SQS Dead Letter Queue has messages"
+          description: >-
+            The SQS DLQ has {{ $value }} visible messages. This indicates
+            click event processing failures that need investigation.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/sqs-dlq-growth.md"
+
+      - alert: SQSDLQDepthCritical
+        expr: shorty_sqs_dlq_messages_visible > 100
+        for: 5m
+        labels:
+          severity: critical
+          service: sqs
+        annotations:
+          summary: "SQS DLQ depth exceeds 100 messages"
+          description: >-
+            The SQS DLQ has {{ $value }} visible messages, exceeding the 100
+            message threshold. Systematic worker failure is likely.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/sqs-dlq-growth.md"
+
+      - alert: SQSQueueBacklog
+        expr: shorty_sqs_oldest_message_age_seconds > 60
+        for: 5m
+        labels:
+          severity: warning
+          service: sqs
+        annotations:
+          summary: "SQS oldest message age exceeds 60 seconds"
+          description: >-
+            Messages are backing up in the click events queue. The oldest
+            message is {{ $value | printf "%.0f" }} seconds old.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/sqs-dlq-growth.md"
+
+      - alert: LambdaThrottling
+        expr: |
+          sum by (function_name) (rate(shorty_lambda_throttles_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: lambda
+        annotations:
+          summary: "Lambda throttling detected for {{ $labels.function_name }}"
+          description: >-
+            Lambda function {{ $labels.function_name }} is being throttled.
+            This will result in 502/429 errors for users.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/lambda-throttling.md"
+
+      - alert: LambdaHighErrorRate
+        expr: |
+          sum by (function_name) (rate(shorty_lambda_errors_total[5m]))
+          /
+          sum by (function_name) (rate(shorty_lambda_invocations_total[5m]))
+          * 100 > 5
+        for: 5m
+        labels:
+          severity: critical
+          service: lambda
+        annotations:
+          summary: "Lambda error rate above 5% for {{ $labels.function_name }}"
+          description: >-
+            Lambda function {{ $labels.function_name }} has a {{ $value | printf "%.1f" }}%
+            error rate. Check recent deployments and downstream dependencies.
+          runbook_url: "https://github.com/romanitalian/shorty/blob/main/docs/sre/runbooks/high-error-rate.md"

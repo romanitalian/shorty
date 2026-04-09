@@ -1,0 +1,330 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Error Budget Remaining (%)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 10 },
+              { "color": "yellow", "value": 25 },
+              { "color": "green", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "(1 - (sum(increase(shorty_redirects_total{status=~\"5..\"}[30d])) / (sum(increase(shorty_redirects_total[30d])) * 0.001))) * 100",
+          "legendFormat": "Error Budget Remaining",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "title": "SLO Compliance (30 days)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 99.0 },
+              { "color": "green", "value": 99.9 }
+            ]
+          },
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "(1 - (sum(increase(shorty_redirects_total{status=~\"5..\"}[30d])) / sum(increase(shorty_redirects_total[30d])))) * 100",
+          "legendFormat": "Availability",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "title": "Current Error Rate vs SLO Target",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.05 },
+              { "color": "red", "value": 0.1 }
+            ]
+          },
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(shorty_redirects_total{status=~\"5..\"}[5m])) / sum(rate(shorty_redirects_total[5m])) * 100",
+          "legendFormat": "Current 5xx Rate",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "title": "Burn Rate (Multi-Window)",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 3 },
+              { "color": "orange", "value": 6 },
+              { "color": "red", "value": 14.4 }
+            ]
+          },
+          "custom.thresholdsStyle": { "mode": "line" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Critical Threshold (14.4x)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Warning Threshold (6x)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "(sum(rate(shorty_redirects_total{status=~\"5..\"}[1h])) / sum(rate(shorty_redirects_total[1h]))) / 0.001",
+          "legendFormat": "1h Burn Rate",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum(rate(shorty_redirects_total{status=~\"5..\"}[6h])) / sum(rate(shorty_redirects_total[6h]))) / 0.001",
+          "legendFormat": "6h Burn Rate",
+          "refId": "B"
+        },
+        {
+          "expr": "(sum(rate(shorty_redirects_total{status=~\"5..\"}[24h])) / sum(rate(shorty_redirects_total[24h]))) / 0.001",
+          "legendFormat": "24h Burn Rate",
+          "refId": "C"
+        },
+        {
+          "expr": "vector(14.4)",
+          "legendFormat": "Critical Threshold (14.4x)",
+          "refId": "D"
+        },
+        {
+          "expr": "vector(6)",
+          "legendFormat": "Warning Threshold (6x)",
+          "refId": "E"
+        }
+      ]
+    },
+    {
+      "title": "Availability SLI (30-day Rolling)",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 18 },
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 99.9 }
+            ]
+          },
+          "decimals": 3,
+          "min": 99
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "SLO Target (99.9%)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "(1 - (sum(increase(shorty_redirects_total{status=~\"5..\"}[30d])) / sum(increase(shorty_redirects_total[30d])))) * 100",
+          "legendFormat": "Availability",
+          "refId": "A"
+        },
+        {
+          "expr": "vector(99.9)",
+          "legendFormat": "SLO Target (99.9%)",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "Redirect Latency p99 vs SLO",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 28 },
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.1 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "SLO Target (100ms)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(shorty_redirect_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99 Latency",
+          "refId": "A"
+        },
+        {
+          "expr": "vector(0.1)",
+          "legendFormat": "SLO Target (100ms)",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["shorty", "slo", "burn-rate"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "Prometheus",
+          "value": "Prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-24h", "to": "now" },
+  "title": "Shorty - SLO Burn Rate",
+  "uid": "shorty-slo-burn-rate",
+  "version": 1
+}
