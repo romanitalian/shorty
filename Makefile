@@ -66,8 +66,15 @@ spec-gen: spec-validate ## Generate Go server stubs + types from OpenAPI spec
 	@echo "$(GREEN)Code generated$(RESET)"
 
 .PHONY: spec-docs
-spec-docs: ## Serve interactive API docs (Redoc) at http://localhost:8080
-	npx @redocly/cli preview-docs docs/api/openapi.yaml --port 8080
+spec-docs: ## Serve interactive API docs (Redoc) at http://localhost:8082
+	@# @redocly/cli v2 renamed preview-docs → preview; port 8082 avoids
+	@# colliding with the API container on :8080.
+	npx @redocly/cli preview docs/api/openapi.yaml --port 8082
+
+.PHONY: spec-build-docs
+spec-build-docs: ## Build static Redoc HTML → docs/api/redoc.html
+	npx @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/redoc.html
+	@echo "$(GREEN)Generated: docs/api/redoc.html$(RESET)"
 
 .PHONY: spec-diff
 spec-diff: ## Diff current spec against last released version (breaking change detection)
@@ -79,17 +86,17 @@ spec-diff: ## Diff current spec against last released version (breaking change d
 .PHONY: bdd
 bdd: ## Run all BDD feature tests (godog)
 	@echo "$(YELLOW)Running BDD tests...$(RESET)"
-	$(GO) test ./tests/bdd/... -v --godog.format=pretty
+	GODOG_FORMAT=pretty $(GO) test ./tests/bdd/... -v
 	@echo "$(GREEN)BDD tests complete$(RESET)"
 
 .PHONY: bdd-feature
 bdd-feature: ## Run specific BDD feature: make bdd-feature FEATURE=redirect
 	@echo "$(YELLOW)Running feature: $(FEATURE)$(RESET)"
-	$(GO) test ./tests/bdd/... -v --godog.format=pretty --godog.tags=$(FEATURE)
+	GODOG_FORMAT=pretty GODOG_TAGS=$(FEATURE) $(GO) test ./tests/bdd/... -v
 
 .PHONY: bdd-report
 bdd-report: ## Run BDD tests and generate HTML report
-	$(GO) test ./tests/bdd/... --godog.format=cucumber > tests/bdd/results.json
+	GODOG_FORMAT=cucumber $(GO) test ./tests/bdd/... > tests/bdd/results.json
 	npx cucumber-html-reporter \
 		--inputJsonFile tests/bdd/results.json \
 		--outputPath tests/bdd/report.html

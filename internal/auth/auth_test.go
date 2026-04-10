@@ -100,14 +100,14 @@ func newTestAuthenticator(t *testing.T, priv *rsa.PrivateKey, pub *rsa.PublicKey
 func validClaims(issuer, clientID, sub string) map[string]interface{} {
 	now := time.Now()
 	return map[string]interface{}{
-		"sub":             sub,
-		"iss":             issuer,
-		"client_id":       clientID,
-		"token_use":       "access",
-		"exp":             now.Add(1 * time.Hour).Unix(),
-		"iat":             now.Add(-1 * time.Minute).Unix(),
-		"email":           "user@example.com",
-		"cognito:groups":  []string{"free-tier"},
+		"sub":            sub,
+		"iss":            issuer,
+		"client_id":      clientID,
+		"token_use":      "access",
+		"exp":            now.Add(1 * time.Hour).Unix(),
+		"iat":            now.Add(-1 * time.Minute).Unix(),
+		"email":          "user@example.com",
+		"cognito:groups": []string{"free-tier"},
 	}
 }
 

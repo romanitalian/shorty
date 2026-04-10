@@ -13,6 +13,11 @@
 bin/
 dist/
 *.zip
+tmp/
+.build/
+
+# Generated docs (rebuild with `make spec-build-docs`)
+docs/api/redoc.html
 
 # Go
 vendor/

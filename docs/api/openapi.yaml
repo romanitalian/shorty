@@ -744,7 +744,7 @@ components:
           pattern: '^[a-zA-Z0-9]{3,32}$'
           minLength: 3
           maxLength: 32
-          example: my-link
+          example: myLink1
         title:
           type: string
           description: Human-readable label
@@ -1134,7 +1134,7 @@ components:
         instance:
           type: string
           description: A URI reference identifying the specific occurrence
-          format: uri
+          format: uri-reference
           example: /api/v1/links
         errors:
           type: array

@@ -9,19 +9,19 @@ import (
 
 // MockStore implements store.Store for testing.
 type MockStore struct {
-	CreateLinkFn         func(ctx context.Context, link *store.Link) error
-	GetLinkFn            func(ctx context.Context, code string) (*store.Link, error)
-	UpdateLinkFn         func(ctx context.Context, code string, callerID string, updates map[string]interface{}) error
-	DeleteLinkFn         func(ctx context.Context, code string, callerID string) error
-	ListLinksByOwnerFn   func(ctx context.Context, ownerID string, cursor string, limit int) ([]*store.Link, string, error)
+	CreateLinkFn          func(ctx context.Context, link *store.Link) error
+	GetLinkFn             func(ctx context.Context, code string) (*store.Link, error)
+	UpdateLinkFn          func(ctx context.Context, code string, callerID string, updates map[string]interface{}) error
+	DeleteLinkFn          func(ctx context.Context, code string, callerID string) error
+	ListLinksByOwnerFn    func(ctx context.Context, ownerID string, cursor string, limit int) ([]*store.Link, string, error)
 	IncrementClickCountFn func(ctx context.Context, code string, maxClicks *int64) (bool, error)
-	BatchWriteClicksFn   func(ctx context.Context, events []*store.ClickEvent) error
-	GetLinkStatsFn       func(ctx context.Context, code string) (*store.LinkStats, error)
-	GetLinkTimelineFn    func(ctx context.Context, code string, from, to time.Time, granularity string) ([]store.TimelineBucket, error)
-	GetLinkGeoFn         func(ctx context.Context, code string) ([]store.GeoStat, error)
-	GetLinkReferrersFn   func(ctx context.Context, code string) ([]store.ReferrerStat, error)
-	GetUserFn            func(ctx context.Context, userID string) (*store.User, error)
-	UpdateUserQuotaFn    func(ctx context.Context, userID string) error
+	BatchWriteClicksFn    func(ctx context.Context, events []*store.ClickEvent) error
+	GetLinkStatsFn        func(ctx context.Context, code string) (*store.LinkStats, error)
+	GetLinkTimelineFn     func(ctx context.Context, code string, from, to time.Time, granularity string) ([]store.TimelineBucket, error)
+	GetLinkGeoFn          func(ctx context.Context, code string) ([]store.GeoStat, error)
+	GetLinkReferrersFn    func(ctx context.Context, code string) ([]store.ReferrerStat, error)
+	GetUserFn             func(ctx context.Context, userID string) (*store.User, error)
+	UpdateUserQuotaFn     func(ctx context.Context, userID string) error
 }
 
 func (m *MockStore) CreateLink(ctx context.Context, link *store.Link) error {

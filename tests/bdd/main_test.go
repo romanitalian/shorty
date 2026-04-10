@@ -20,6 +20,7 @@ func TestFeatures(t *testing.T) {
 		Options: &godog.Options{
 			Format:   format,
 			Paths:    []string{"features"},
+			Tags:     os.Getenv("GODOG_TAGS"),
 			TestingT: t,
 		},
 	}
