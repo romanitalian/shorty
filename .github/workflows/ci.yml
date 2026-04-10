@@ -16,7 +16,7 @@ env:
   # Must match the `go` directive in go.mod. golangci-lint v1.57 cannot parse
   # Go 1.25 export data, so the lint/gosec steps below are temporarily marked
   # continue-on-error until the config is migrated to golangci-lint v2 and the
-  # existing lint debt is addressed. See follow-up issue for tracking.
+  # existing lint debt is addressed. See romanitalian/shorty#4.
   GO_VERSION: "1.25"
 
 jobs:
@@ -61,8 +61,8 @@ jobs:
       - name: Go vet
         run: go vet ./...
 
-      # TODO: migrate .golangci.yml to v2 format, upgrade action to v6+,
-      # then address the existing lint debt (see follow-up issue).
+      # TODO(#4): migrate .golangci.yml to v2 format, upgrade action to v6+,
+      # then address the existing lint debt.
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v4
         continue-on-error: true
@@ -70,7 +70,7 @@ jobs:
           version: v1.57
           args: --timeout=5m
 
-      # TODO: address the 8 pre-existing findings (G114/G115/G304/G104),
+      # TODO(#4): address the 8 pre-existing findings (G114/G115/G304/G104),
       # then drop continue-on-error.
       - name: gosec
         uses: securego/gosec@v2.20.0
