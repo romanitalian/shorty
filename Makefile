@@ -86,17 +86,17 @@ spec-diff: ## Diff current spec against last released version (breaking change d
 .PHONY: bdd
 bdd: ## Run all BDD feature tests (godog)
 	@echo "$(YELLOW)Running BDD tests...$(RESET)"
-	$(GO) test ./tests/bdd/... -v --godog.format=pretty
+	GODOG_FORMAT=pretty $(GO) test ./tests/bdd/... -v
 	@echo "$(GREEN)BDD tests complete$(RESET)"
 
 .PHONY: bdd-feature
 bdd-feature: ## Run specific BDD feature: make bdd-feature FEATURE=redirect
 	@echo "$(YELLOW)Running feature: $(FEATURE)$(RESET)"
-	$(GO) test ./tests/bdd/... -v --godog.format=pretty --godog.tags=$(FEATURE)
+	GODOG_FORMAT=pretty GODOG_TAGS=$(FEATURE) $(GO) test ./tests/bdd/... -v
 
 .PHONY: bdd-report
 bdd-report: ## Run BDD tests and generate HTML report
-	$(GO) test ./tests/bdd/... --godog.format=cucumber > tests/bdd/results.json
+	GODOG_FORMAT=cucumber $(GO) test ./tests/bdd/... > tests/bdd/results.json
 	npx cucumber-html-reporter \
 		--inputJsonFile tests/bdd/results.json \
 		--outputPath tests/bdd/report.html
