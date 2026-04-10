@@ -1,0 +1,31 @@
+{{define "content"}}
+<section class="mx-auto max-w-3xl px-6 py-20">
+  <h1 class="text-4xl font-bold tracking-tight text-slate-900">About Shorty</h1>
+  <p class="mt-6 text-lg text-slate-600">
+    Shorty is an open-source, production-grade URL shortener built on AWS serverless primitives:
+    Lambda (Go, ARM64), API Gateway v2, DynamoDB, ElastiCache Redis, SQS FIFO, and CloudFront with WAF.
+  </p>
+  <div class="mt-10 prose prose-slate max-w-none">
+    <h2 class="text-xl font-semibold text-slate-900">Why another shortener?</h2>
+    <p class="text-slate-600">
+      Because every SaaS shortener is either slow, expensive, ad-riddled, or all three.
+      We wanted the kind of service we would pay for — but runnable on your own infrastructure
+      for the cost of a coffee per month.
+    </p>
+    <h2 class="mt-8 text-xl font-semibold text-slate-900">Design goals</h2>
+    <ul class="mt-4 space-y-2 text-slate-600 list-disc pl-5">
+      <li><strong>p99 redirect latency &lt; 100 ms</strong> — Redis-first lookup, CloudFront at the edge.</li>
+      <li><strong>Async analytics</strong> — click events never block the redirect.</li>
+      <li><strong>Spec-first API</strong> — OpenAPI 3.0 drives the Go stubs and BDD tests.</li>
+      <li><strong>Infrastructure as code</strong> — the whole stack is Terraform.</li>
+      <li><strong>Testable locally</strong> — LocalStack + docker-compose reproduce production faithfully.</li>
+    </ul>
+    <h2 class="mt-8 text-xl font-semibold text-slate-900">Source & contributing</h2>
+    <p class="text-slate-600">
+      The project lives at
+      <a class="text-brand-700 hover:underline" href="https://github.com/romanitalian/shorty">github.com/romanitalian/shorty</a>.
+      Issues, RFCs, and PRs welcome.
+    </p>
+  </div>
+</section>
+{{end}}

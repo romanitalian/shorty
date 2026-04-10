@@ -91,10 +91,14 @@ func init() {
 	r.Use(mw.MaxBodySize(10 * 1024))      // B4: 10 KB request body limit
 	r.Use(auth.Middleware(authenticator)) // S5: JWT auth middleware
 
+	// Marketing site (landing, login, pricing, privacy, terms, etc.).
+	// These static routes must be registered BEFORE gen.HandlerFromMux so
+	// chi's trie prefers them over the wildcard GET /{code} redirect route.
+	registerWebHandlers(r)
+
 	// Local-only: serve Redoc at /docs and raw spec at /openapi.yaml.
-	// These are registered on the same chi router; chi's trie prioritises
-	// static segments over the generated /{code} param route, so they
-	// don't collide with the redirect handler.
+	// chi's trie prioritises static segments over the generated /{code} param
+	// route, so they don't collide with the redirect handler.
 	if os.Getenv("LOCAL_MODE") == "true" {
 		specPath := envOrDefault("OPENAPI_SPEC_PATH", "docs/api/openapi.yaml")
 		registerDocsHandlers(r, specPath)

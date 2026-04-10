@@ -1,0 +1,44 @@
+{{define "content"}}
+<section class="mx-auto max-w-3xl px-6 py-20">
+  <h1 class="text-4xl font-bold tracking-tight text-slate-900">Privacy Policy</h1>
+  <p class="mt-4 text-sm text-slate-500">Last updated: {{.Year}}</p>
+
+  <div class="mt-10 space-y-6 text-slate-600">
+    <section>
+      <h2 class="text-xl font-semibold text-slate-900">What we collect</h2>
+      <p class="mt-2">
+        When you shorten a URL we store the original URL, a short code, your user ID (if logged in),
+        and metadata such as creation time and expiration.
+      </p>
+      <p class="mt-2">
+        When someone follows a short link we record a click event containing the timestamp,
+        the referring URL, an anonymized country/device breakdown, and a
+        <strong>hashed</strong> version of the IP (SHA-256 with a rotating server-side salt).
+        We never store raw IP addresses.
+      </p>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold text-slate-900">What we don't collect</h2>
+      <ul class="mt-2 list-disc pl-5 space-y-1">
+        <li>No raw IP addresses.</li>
+        <li>No third-party tracking scripts or ad SDKs.</li>
+        <li>No profile of your browsing history across other sites.</li>
+      </ul>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold text-slate-900">Retention</h2>
+      <p class="mt-2">
+        Click event records auto-expire after 90 days via DynamoDB TTL. Link records expire when
+        their TTL or max-click limit is reached. Account data is deleted on request — contact us.
+      </p>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold text-slate-900">Your rights</h2>
+      <p class="mt-2">
+        You can request a copy, correction, or deletion of your data at any time via
+        <a href="/contact" class="text-brand-700 hover:underline">our contact page</a>.
+      </p>
+    </section>
+  </div>
+</section>
+{{end}}
