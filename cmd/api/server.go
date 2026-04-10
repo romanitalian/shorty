@@ -15,6 +15,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	gen "github.com/romanitalian/shorty/internal/api/generated"
 	"github.com/romanitalian/shorty/internal/auth"
 	"github.com/romanitalian/shorty/internal/cache"
@@ -23,16 +24,15 @@ import (
 	"github.com/romanitalian/shorty/internal/store"
 	"github.com/romanitalian/shorty/internal/validator"
 	"github.com/romanitalian/shorty/pkg/apierr"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
 	// Rate limit tiers.
-	guestCreateLimit int64         = 5
-	guestCreateWindow              = 1 * time.Hour
-	userCreateLimit  int64         = 50
-	userCreateWindow               = 1 * time.Hour
-	maxGuestTTL                    = 24 * time.Hour
+	guestCreateLimit  int64 = 5
+	guestCreateWindow       = 1 * time.Hour
+	userCreateLimit   int64 = 50
+	userCreateWindow        = 1 * time.Hour
+	maxGuestTTL             = 24 * time.Hour
 
 	// Header used to pass user ID from auth middleware (placeholder for Sprint 5).
 	headerUserID = "X-User-Id"

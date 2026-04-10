@@ -9,9 +9,9 @@ import (
 
 // MockCache implements cache.Cache for testing.
 type MockCache struct {
-	GetLinkFn    func(ctx context.Context, code string) (*store.Link, error)
-	SetLinkFn    func(ctx context.Context, code string, link *store.Link, ttl time.Duration) error
-	DeleteLinkFn func(ctx context.Context, code string) error
+	GetLinkFn     func(ctx context.Context, code string) (*store.Link, error)
+	SetLinkFn     func(ctx context.Context, code string, link *store.Link, ttl time.Duration) error
+	DeleteLinkFn  func(ctx context.Context, code string) error
 	SetNegativeFn func(ctx context.Context, code string) error
 	IsNegativeFn  func(ctx context.Context, code string) (bool, error)
 }

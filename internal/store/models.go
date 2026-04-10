@@ -38,7 +38,7 @@ type ClickEvent struct {
 // LinkStats contains aggregate click statistics for a link.
 type LinkStats struct {
 	TotalClicks  int64
-	UniqueClicks int64  // unique ip_hashes
+	UniqueClicks int64 // unique ip_hashes
 	LastClickAt  *int64
 }
 
@@ -63,15 +63,15 @@ type ReferrerStat struct {
 // User represents a user profile record in the DynamoDB users table.
 // Key pattern: PK = "USER#{cognito_sub}", SK = "PROFILE"
 type User struct {
-	PK               string `dynamodbav:"PK"`
-	SK               string `dynamodbav:"SK"`
-	Email            string `dynamodbav:"email"`
-	DisplayName      string `dynamodbav:"display_name,omitempty"`
-	Plan             string `dynamodbav:"plan"`
-	DailyLinkQuota   int64  `dynamodbav:"daily_link_quota"`
-	TotalLinkQuota   int64  `dynamodbav:"total_link_quota"`
+	PK                string `dynamodbav:"PK"`
+	SK                string `dynamodbav:"SK"`
+	Email             string `dynamodbav:"email"`
+	DisplayName       string `dynamodbav:"display_name,omitempty"`
+	Plan              string `dynamodbav:"plan"`
+	DailyLinkQuota    int64  `dynamodbav:"daily_link_quota"`
+	TotalLinkQuota    int64  `dynamodbav:"total_link_quota"`
 	LinksCreatedToday int64  `dynamodbav:"links_created_today"`
-	TotalActiveLinks int64  `dynamodbav:"total_active_links"`
-	LastResetDate    string `dynamodbav:"last_reset_date"`
-	CreatedAt        int64  `dynamodbav:"created_at"`
+	TotalActiveLinks  int64  `dynamodbav:"total_active_links"`
+	LastResetDate     string `dynamodbav:"last_reset_date"`
+	CreatedAt         int64  `dynamodbav:"created_at"`
 }

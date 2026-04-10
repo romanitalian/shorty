@@ -60,7 +60,7 @@ func (m *mockStore) GetLinkReferrers(_ context.Context, _ string) ([]store.Refer
 	return nil, nil
 }
 func (m *mockStore) GetUser(ctx context.Context, userID string) (*store.User, error) { return nil, nil }
-func (m *mockStore) UpdateUserQuota(ctx context.Context, userID string) error               { return nil }
+func (m *mockStore) UpdateUserQuota(ctx context.Context, userID string) error        { return nil }
 
 type mockCache struct {
 	getLink     func(ctx context.Context, code string) (*store.Link, error)
