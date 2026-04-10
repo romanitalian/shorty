@@ -1,0 +1,31 @@
+{{define "content"}}
+<section class="mx-auto max-w-3xl px-6 py-20">
+  <h1 class="text-4xl font-bold tracking-tight text-slate-900">Contact</h1>
+  <p class="mt-4 text-lg text-slate-600">
+    Found a bug, have a question, or want to contribute? Here's how to reach us.
+  </p>
+
+  <div class="mt-10 grid gap-6 md:grid-cols-2">
+    <a href="https://github.com/romanitalian/shorty/issues/new" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
+      <div class="h-10 w-10 rounded-lg bg-slate-900 text-white inline-flex items-center justify-center">🐛</div>
+      <h3 class="mt-4 font-semibold">Report an issue</h3>
+      <p class="mt-1 text-sm text-slate-600">Open a GitHub issue with a reproduction.</p>
+    </a>
+    <a href="https://github.com/romanitalian/shorty/discussions" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
+      <div class="h-10 w-10 rounded-lg bg-brand-600 text-white inline-flex items-center justify-center">💬</div>
+      <h3 class="mt-4 font-semibold">Start a discussion</h3>
+      <p class="mt-1 text-sm text-slate-600">Questions, ideas, design feedback.</p>
+    </a>
+    <a href="/docs" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
+      <div class="h-10 w-10 rounded-lg bg-emerald-600 text-white inline-flex items-center justify-center">📚</div>
+      <h3 class="mt-4 font-semibold">Read the docs</h3>
+      <p class="mt-1 text-sm text-slate-600">OpenAPI spec and integration examples.</p>
+    </a>
+    <a href="https://github.com/romanitalian/shorty/security/advisories/new" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
+      <div class="h-10 w-10 rounded-lg bg-rose-600 text-white inline-flex items-center justify-center">🔒</div>
+      <h3 class="mt-4 font-semibold">Security advisory</h3>
+      <p class="mt-1 text-sm text-slate-600">Report security issues privately.</p>
+    </a>
+  </div>
+</section>
+{{end}}

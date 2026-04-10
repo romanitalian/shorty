@@ -1,0 +1,38 @@
+{{define "content"}}
+<section class="mx-auto max-w-3xl px-6 py-20">
+  <h1 class="text-4xl font-bold tracking-tight text-slate-900">Terms of Service</h1>
+  <p class="mt-4 text-sm text-slate-500">Last updated: {{.Year}}</p>
+
+  <div class="mt-10 space-y-6 text-slate-600">
+    <section>
+      <h2 class="text-xl font-semibold text-slate-900">Acceptable use</h2>
+      <p class="mt-2">
+        You may not use Shorty to shorten links that point to malware, phishing sites,
+        illegal content, content you don't have rights to, or that violate any applicable law.
+        We reserve the right to remove offending links without notice.
+      </p>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold text-slate-900">Rate limits</h2>
+      <p class="mt-2">
+        Guest requests are rate-limited. Authenticated users get higher quotas tied to their plan.
+        Abuse or automated scraping may result in temporary or permanent IP blocks.
+      </p>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold text-slate-900">Service availability</h2>
+      <p class="mt-2">
+        Shorty is provided "as is" without warranties of any kind. We aim for 99.9% uptime on the
+        hosted tier but we can't promise it. For mission-critical deployments, self-host.
+      </p>
+    </section>
+    <section>
+      <h2 class="text-xl font-semibold text-slate-900">Liability</h2>
+      <p class="mt-2">
+        To the fullest extent permitted by law, Shorty and its contributors are not liable for any
+        indirect, incidental, or consequential damages arising from use of the service.
+      </p>
+    </section>
+  </div>
+</section>
+{{end}}

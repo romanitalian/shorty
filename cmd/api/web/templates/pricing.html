@@ -1,0 +1,52 @@
+{{define "content"}}
+<section class="mx-auto max-w-6xl px-6 py-20">
+  <div class="text-center">
+    <h1 class="text-4xl font-bold tracking-tight text-slate-900">Simple, predictable pricing</h1>
+    <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
+      Shorty is self-hostable and free. The tiers below apply if you run the hosted SaaS version.
+    </p>
+  </div>
+
+  <div class="mt-14 grid gap-6 md:grid-cols-3">
+    <div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Free</h3>
+      <div class="mt-4 flex items-baseline gap-1"><span class="text-4xl font-bold text-slate-900">$0</span><span class="text-slate-500 text-sm">/mo</span></div>
+      <ul class="mt-6 space-y-3 text-sm text-slate-600">
+        <li>✓ 1 000 shortenings / month</li>
+        <li>✓ Guest links (24 h TTL)</li>
+        <li>✓ Basic analytics</li>
+        <li>✓ Open-source code</li>
+      </ul>
+      <a href="/login" class="mt-8 block text-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Get started</a>
+    </div>
+
+    <div class="rounded-2xl border-2 border-brand-600 bg-white p-8 shadow-lg relative">
+      <span class="absolute -top-3 left-8 rounded-full bg-brand-600 px-3 py-1 text-xs font-semibold text-white">Popular</span>
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-brand-700">Pro</h3>
+      <div class="mt-4 flex items-baseline gap-1"><span class="text-4xl font-bold text-slate-900">$12</span><span class="text-slate-500 text-sm">/mo</span></div>
+      <ul class="mt-6 space-y-3 text-sm text-slate-600">
+        <li>✓ 100 000 shortenings / month</li>
+        <li>✓ Custom short codes</li>
+        <li>✓ Full click analytics (geo, device, referrer)</li>
+        <li>✓ Password-protected links</li>
+        <li>✓ Link expiration controls</li>
+        <li>✓ Priority support</li>
+      </ul>
+      <a href="/login" class="mt-8 block text-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700">Start 14-day trial</a>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Enterprise</h3>
+      <div class="mt-4 flex items-baseline gap-1"><span class="text-4xl font-bold text-slate-900">Custom</span></div>
+      <ul class="mt-6 space-y-3 text-sm text-slate-600">
+        <li>✓ Unlimited volume</li>
+        <li>✓ Custom domain + SSL</li>
+        <li>✓ SAML / OIDC SSO</li>
+        <li>✓ Audit logs & SLA</li>
+        <li>✓ Dedicated support</li>
+      </ul>
+      <a href="/contact" class="mt-8 block text-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Contact sales</a>
+    </div>
+  </div>
+</section>
+{{end}}
