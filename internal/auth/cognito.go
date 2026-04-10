@@ -33,11 +33,11 @@ func (c *CognitoConfig) jwksURL() string {
 
 // CognitoAuthenticator validates Cognito JWTs using cached JWKS keys.
 type CognitoAuthenticator struct {
-	config          CognitoConfig
-	keys            map[string]*rsa.PublicKey
-	mu              sync.RWMutex
-	lastFetch       time.Time
-	cacheTTL        time.Duration
+	config             CognitoConfig
+	keys               map[string]*rsa.PublicKey
+	mu                 sync.RWMutex
+	lastFetch          time.Time
+	cacheTTL           time.Duration
 	minRefreshInterval time.Duration // B3 fix: minimum interval between JWKS refreshes
 	// httpClient is used to fetch JWKS; injectable for testing.
 	httpClient HTTPClient
