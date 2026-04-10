@@ -145,11 +145,13 @@ var _ store.Store = (*mockStore)(nil)
 
 type mockCache struct{}
 
-func (m *mockCache) GetLink(_ context.Context, _ string) (*store.Link, error)                    { return nil, nil }
-func (m *mockCache) SetLink(_ context.Context, _ string, _ *store.Link, _ time.Duration) error   { return nil }
-func (m *mockCache) DeleteLink(_ context.Context, _ string) error                                 { return nil }
-func (m *mockCache) SetNegative(_ context.Context, _ string) error                                { return nil }
-func (m *mockCache) IsNegative(_ context.Context, _ string) (bool, error)                         { return false, nil }
+func (m *mockCache) GetLink(_ context.Context, _ string) (*store.Link, error) { return nil, nil }
+func (m *mockCache) SetLink(_ context.Context, _ string, _ *store.Link, _ time.Duration) error {
+	return nil
+}
+func (m *mockCache) DeleteLink(_ context.Context, _ string) error         { return nil }
+func (m *mockCache) SetNegative(_ context.Context, _ string) error        { return nil }
+func (m *mockCache) IsNegative(_ context.Context, _ string) (bool, error) { return false, nil }
 
 var _ cache.Cache = (*mockCache)(nil)
 

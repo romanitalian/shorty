@@ -177,13 +177,13 @@ func TestGenerateCustom_InvalidAliases(t *testing.T) {
 	g := New(s)
 
 	invalid := []string{
-		"",           // empty
-		"ab",         // too short (2 chars, need 3+)
-		"-abc",       // starts with hyphen
-		"_abc",       // starts with underscore
-		"ab cd",      // contains space
-		"ab!cd",      // special character
-		"a",          // single char
+		"",                                  // empty
+		"ab",                                // too short (2 chars, need 3+)
+		"-abc",                              // starts with hyphen
+		"_abc",                              // starts with underscore
+		"ab cd",                             // contains space
+		"ab!cd",                             // special character
+		"a",                                 // single char
 		"abcdefghijklmnopqrstuvwxyz1234567", // 33 chars, over limit
 	}
 

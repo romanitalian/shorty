@@ -14,14 +14,14 @@ const MaxURLLength = 2048
 
 // Sentinel errors for each validation failure type.
 var (
-	ErrURLEmpty        = fmt.Errorf("URL is required")
-	ErrURLTooLong      = fmt.Errorf("URL exceeds maximum length of %d characters", MaxURLLength)
-	ErrBlockedScheme   = fmt.Errorf("URL scheme is not allowed; only http and https are permitted")
-	ErrInvalidURL      = fmt.Errorf("URL is not valid")
-	ErrMissingHost     = fmt.Errorf("URL must have a hostname")
-	ErrPrivateIP       = fmt.Errorf("URL host resolves to a private/reserved IP address")
-	ErrDNSResolution   = fmt.Errorf("cannot resolve hostname")
-	ErrMixedScriptIDN  = fmt.Errorf("internationalized domain uses mixed scripts (potential homograph attack)")
+	ErrURLEmpty       = fmt.Errorf("URL is required")
+	ErrURLTooLong     = fmt.Errorf("URL exceeds maximum length of %d characters", MaxURLLength)
+	ErrBlockedScheme  = fmt.Errorf("URL scheme is not allowed; only http and https are permitted")
+	ErrInvalidURL     = fmt.Errorf("URL is not valid")
+	ErrMissingHost    = fmt.Errorf("URL must have a hostname")
+	ErrPrivateIP      = fmt.Errorf("URL host resolves to a private/reserved IP address")
+	ErrDNSResolution  = fmt.Errorf("cannot resolve hostname")
+	ErrMixedScriptIDN = fmt.Errorf("internationalized domain uses mixed scripts (potential homograph attack)")
 )
 
 // blockedSchemes lists URI schemes that must never be stored.

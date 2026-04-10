@@ -8,7 +8,7 @@ import (
 
 // Claims represents the decoded JWT claims.
 type Claims struct {
-	Subject   string   // Cognito user sub (UUID)
+	Subject   string // Cognito user sub (UUID)
 	Email     string
 	Groups    []string // Cognito user groups
 	ExpiresAt time.Time

@@ -87,8 +87,8 @@ func init() {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
-	r.Use(mw.SecurityHeaders)          // B3: security headers on every response
-	r.Use(mw.MaxBodySize(10 * 1024))   // B4: 10 KB request body limit
+	r.Use(mw.SecurityHeaders)             // B3: security headers on every response
+	r.Use(mw.MaxBodySize(10 * 1024))      // B4: 10 KB request body limit
 	r.Use(auth.Middleware(authenticator)) // S5: JWT auth middleware
 
 	// Local-only: serve Redoc at /docs and raw spec at /openapi.yaml.
