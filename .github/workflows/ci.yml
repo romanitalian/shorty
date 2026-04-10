@@ -272,3 +272,5 @@ jobs:
           path: .build/*.zip
           retention-days: 7
           if-no-files-found: error
+          # .build/ is a dotfile directory; v4 excludes hidden paths by default.
+          include-hidden-files: true
