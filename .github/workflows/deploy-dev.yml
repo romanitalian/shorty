@@ -149,6 +149,7 @@ jobs:
           path: .build/*.zip
           retention-days: 7
           if-no-files-found: error
+          include-hidden-files: true
 
   # ---------------------------------------------------------------------------
   # Deploy to dev via Terraform + Lambda update
