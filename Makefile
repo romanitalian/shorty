@@ -66,8 +66,15 @@ spec-gen: spec-validate ## Generate Go server stubs + types from OpenAPI spec
 	@echo "$(GREEN)Code generated$(RESET)"
 
 .PHONY: spec-docs
-spec-docs: ## Serve interactive API docs (Redoc) at http://localhost:8080
-	npx @redocly/cli preview-docs docs/api/openapi.yaml --port 8080
+spec-docs: ## Serve interactive API docs (Redoc) at http://localhost:8082
+	@# @redocly/cli v2 renamed preview-docs → preview; port 8082 avoids
+	@# colliding with the API container on :8080.
+	npx @redocly/cli preview docs/api/openapi.yaml --port 8082
+
+.PHONY: spec-build-docs
+spec-build-docs: ## Build static Redoc HTML → docs/api/redoc.html
+	npx @redocly/cli build-docs docs/api/openapi.yaml -o docs/api/redoc.html
+	@echo "$(GREEN)Generated: docs/api/redoc.html$(RESET)"
 
 .PHONY: spec-diff
 spec-diff: ## Diff current spec against last released version (breaking change detection)

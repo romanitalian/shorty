@@ -52,7 +52,10 @@ var privateRanges = []string{
 	"::1/128",
 	"fc00::/7",
 	"fe80::/10",
-	"::ffff:0:0/96",
+	// NB: The IPv4-mapped IPv6 range "::ffff:0:0/96" cannot be listed here:
+	// net.ParseCIDR reduces it to the IPv4 form 0.0.0.0/0, which matches
+	// every public IPv4 address. The individual IPv4 ranges above already
+	// cover that range in its IPv4 form.
 }
 
 var parsedPrivateRanges []*net.IPNet

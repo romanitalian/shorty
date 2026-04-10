@@ -50,15 +50,36 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "${APP_PORT_API:-8080}:8080"
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
+      # Run the Lambda handler as a plain HTTP server on :8080
+      LOCAL_MODE: "true"
       APP_ENV: local
       APP_PORT: "8080"
+      SHORT_BASE_URL: "http://localhost:8080"
+      # AWS SDK → LocalStack
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_ENDPOINT_URL: http://localstack:4566
+      # DynamoDB table names (cmd/api reads LINKS_TABLE / CLICKS_TABLE / USERS_TABLE)
+      LINKS_TABLE: shorty-links
+      CLICKS_TABLE: shorty-clicks
+      USERS_TABLE: shorty-users
+      # Legacy aliases
       DYNAMODB_ENDPOINT: http://localstack:4566
       REDIS_ADDR: redis:6379
       SQS_ENDPOINT: http://localstack:4566
       SQS_QUEUE_URL: http://localstack:4566/000000000000/click-events.fifo
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      CLICKS_QUEUE_URL: http://localstack:4566/000000000000/click-events.fifo
+      # Secrets (local-only stub values)
+      IP_HASH_SALT: local-dev-salt
+      CSRF_SECRET: local-dev-csrf
+      JWT_SECRET: local-dev-secret
+      # Telemetry — left empty; enable via docker-compose.infra.yml if needed
+      OTEL_EXPORTER_OTLP_ENDPOINT: ""
       OTEL_SERVICE_NAME: shorty-api
     volumes:
       - .:/app
@@ -74,21 +95,38 @@ services:
     networks:
       - shorty-net
 
+  # NOTE: cmd/redirect/main.go calls lambda.Start(handler) unconditionally and
+  # has no local-HTTP fallback, so it cannot run as a standalone container. It
+  # is executed by API Gateway → Lambda in AWS. Kept here for reference / future
+  # local-HTTP support; start explicitly with `docker compose up redirect` only
+  # after wiring LOCAL_MODE into cmd/redirect.
   redirect:
+    profiles: ["lambda-only"]
     build:
       context: .
       dockerfile: Dockerfile.dev
     ports:
       - "${APP_PORT_REDIRECT:-8081}:8081"
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       APP_ENV: local
       APP_PORT: "8081"
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_ENDPOINT_URL: http://localstack:4566
+      LINKS_TABLE: shorty-links
+      CLICKS_TABLE: shorty-clicks
+      USERS_TABLE: shorty-users
       DYNAMODB_ENDPOINT: http://localstack:4566
       REDIS_ADDR: redis:6379
       SQS_ENDPOINT: http://localstack:4566
-      SQS_QUEUE_URL: http://localstack:4566/000000000000/click-events.fifo
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      CLICKS_QUEUE_URL: http://localstack:4566/000000000000/click-events.fifo
+      IP_HASH_SALT: local-dev-salt
+      CSRF_SECRET: local-dev-csrf
+      OTEL_EXPORTER_OTLP_ENDPOINT: ""
       OTEL_SERVICE_NAME: shorty-redirect
     volumes:
       - .:/app
