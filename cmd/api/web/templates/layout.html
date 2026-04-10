@@ -1,0 +1,116 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}} — Shorty</title>
+  <meta name="description" content="{{.Description}}">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%82%EF%B8%8F%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            },
+          },
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+    .glass { backdrop-filter: saturate(140%) blur(12px); }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-900 antialiased">
+
+  <!-- ================== HEADER ================== -->
+  <header class="sticky top-0 z-40 glass bg-white/75 border-b border-slate-200">
+    <div class="mx-auto max-w-7xl px-6 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2 font-bold text-lg">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">✂️</span>
+        <span>Shorty</span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+        <a href="/features" class="hover:text-slate-900 transition">Features</a>
+        <a href="/pricing"  class="hover:text-slate-900 transition">Pricing</a>
+        <a href="/about"    class="hover:text-slate-900 transition">About</a>
+        <a href="/docs"     class="hover:text-slate-900 transition">API Docs</a>
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <a href="/dashboard" class="hidden sm:inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 hover:text-slate-900">
+          Dashboard
+        </a>
+        <a href="/login" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 text-white hover:bg-brand-700 shadow-sm transition">
+          Log in
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================== PAGE CONTENT ================== -->
+  <main>
+    {{template "content" .}}
+  </main>
+
+  <!-- ================== FOOTER ================== -->
+  <footer class="mt-24 border-t border-slate-200 bg-slate-50">
+    <div class="mx-auto max-w-7xl px-6 py-16 grid grid-cols-2 md:grid-cols-5 gap-8">
+      <div class="col-span-2">
+        <div class="flex items-center gap-2 font-bold text-lg">
+          <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">✂️</span>
+          Shorty
+        </div>
+        <p class="mt-4 text-sm text-slate-600 max-w-xs">
+          Fast, reliable URL shortening with built-in analytics, rate-limiting, and expiration controls.
+        </p>
+        <p class="mt-6 text-xs text-slate-500">© {{.Year}} Shorty. All rights reserved.</p>
+      </div>
+
+      <div>
+        <h4 class="text-sm font-semibold text-slate-900">Product</h4>
+        <ul class="mt-4 space-y-3 text-sm text-slate-600">
+          <li><a href="/features" class="hover:text-slate-900">Features</a></li>
+          <li><a href="/pricing" class="hover:text-slate-900">Pricing</a></li>
+          <li><a href="/docs" class="hover:text-slate-900">API Docs</a></li>
+          <li><a href="/dashboard" class="hover:text-slate-900">Dashboard</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-sm font-semibold text-slate-900">Company</h4>
+        <ul class="mt-4 space-y-3 text-sm text-slate-600">
+          <li><a href="/about" class="hover:text-slate-900">About</a></li>
+          <li><a href="/contact" class="hover:text-slate-900">Contact</a></li>
+          <li><a href="https://github.com/romanitalian/shorty" class="hover:text-slate-900">GitHub</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-sm font-semibold text-slate-900">Legal</h4>
+        <ul class="mt-4 space-y-3 text-sm text-slate-600">
+          <li><a href="/privacy" class="hover:text-slate-900">Privacy</a></li>
+          <li><a href="/terms" class="hover:text-slate-900">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
+{{end}}
