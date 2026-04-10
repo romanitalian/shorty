@@ -52,7 +52,7 @@ jobs:
           fi
       - name: Go vet
         run: go vet ./...
-      # TODO: see ci.yml — golangci-lint v1.57 cannot parse Go 1.25 export
+      # TODO(#4): see ci.yml — golangci-lint v1.57 cannot parse Go 1.25 export
       # data; migrate to v2 config + action and clear lint debt.
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v4
