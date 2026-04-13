@@ -1,5 +1,7 @@
 # Shorty
 
+![Shorty homepage](output/playwright/home-fullpage.png)
+
 [![CI](https://github.com/romanitalian/shorty/actions/workflows/ci.yml/badge.svg)](https://github.com/romanitalian/shorty/actions/workflows/ci.yml)
 [![Go Version](https://img.shields.io/badge/go-1.23+-00ADD8?logo=go)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
